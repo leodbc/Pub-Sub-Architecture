@@ -1,0 +1,57 @@
+x-kafka: &kafka
+  image: apache/kafka-native:4.1.0
+  mem_limit: 320m
+x-env: &env
+  KAFKA_PROCESS_ROLES: "broker,controller"
+  KAFKA_LISTENERS: "INTERNA://:9092,CONTROLLER://:9093,CLIENTE://:19092"
+  KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "INTERNA:PLAINTEXT,CONTROLLER:PLAINTEXT,CLIENTE:PLAINTEXT"
+  KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNA"
+  KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+  KAFKA_CONTROLLER_QUORUM_VOTERS: "1@172.30.0.41:9093,2@172.30.0.42:9093,3@172.30.0.43:9093"
+  CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+  KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+  KAFKA_MIN_INSYNC_REPLICAS: 2
+  KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+  KAFKA_HEAP_OPTS: "-Xmx160M"
+
+services:
+  kafka1:
+    <<: *kafka
+    container_name: kafka1
+    environment:
+      <<: *env
+      KAFKA_NODE_ID: 1
+      KAFKA_ADVERTISED_LISTENERS: "INTERNA://172.30.0.41:9092,CLIENTE://172.31.0.41:19092"
+    networks: {interna: {ipv4_address: 172.30.0.41}, clientes: {ipv4_address: 172.31.0.41}}
+  kafka2:
+    <<: *kafka
+    container_name: kafka2
+    environment:
+      <<: *env
+      KAFKA_NODE_ID: 2
+      KAFKA_ADVERTISED_LISTENERS: "INTERNA://172.30.0.42:9092,CLIENTE://172.31.0.42:19092"
+    networks: {interna: {ipv4_address: 172.30.0.42}, clientes: {ipv4_address: 172.31.0.42}}
+  kafka3:
+    <<: *kafka
+    container_name: kafka3
+    environment:
+      <<: *env
+      KAFKA_NODE_ID: 3
+      KAFKA_ADVERTISED_LISTENERS: "INTERNA://172.30.0.43:9092,CLIENTE://172.31.0.43:19092"
+    networks: {interna: {ipv4_address: 172.30.0.43}, clientes: {ipv4_address: 172.31.0.43}}
+  cliente:
+    image: apache/kafka:4.1.0
+    container_name: cliente
+    mem_limit: 512m
+    entrypoint: ["sleep", "infinity"]
+    environment:
+      KAFKA_HEAP_OPTS: "-Xmx256M"
+      BS: "172.31.0.41:19092,172.31.0.42:19092,172.31.0.43:19092"
+    volumes: ["../go/bin:/app:ro"]
+    networks: {clientes: {ipv4_address: 172.31.0.100}}
+
+networks:
+  interna: {ipam: {config: [{subnet: 172.30.0.0/24}]}}
+  clientes: {ipam: {config: [{subnet: 172.31.0.0/24}]}}

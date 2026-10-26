@@ -1,0 +1,43 @@
+# Cluster NATS JetStream de 3 nós. Sub-redes diferentes do Kafka para poder rodar os dois juntos.
+x-nats: &nats
+  image: nats:2.10-alpine
+  mem_limit: 128m
+
+services:
+  nats1:
+    <<: *nats
+    container_name: nats1
+    command: ["-js", "-sd", "/data", "-n", "nats1", "--cluster_name", "sd-nats",
+              "--cluster", "nats://0.0.0.0:6222", "--cluster_advertise", "172.32.0.51:6222",
+              "--routes", "nats://172.32.0.52:6222,nats://172.32.0.53:6222",
+              "--client_advertise", "172.33.0.51:4222", "-m", "8222"]
+    networks: {interna: {ipv4_address: 172.32.0.51}, clientes: {ipv4_address: 172.33.0.51}}
+  nats2:
+    <<: *nats
+    container_name: nats2
+    command: ["-js", "-sd", "/data", "-n", "nats2", "--cluster_name", "sd-nats",
+              "--cluster", "nats://0.0.0.0:6222", "--cluster_advertise", "172.32.0.52:6222",
+              "--routes", "nats://172.32.0.51:6222,nats://172.32.0.53:6222",
+              "--client_advertise", "172.33.0.52:4222", "-m", "8222"]
+    networks: {interna: {ipv4_address: 172.32.0.52}, clientes: {ipv4_address: 172.33.0.52}}
+  nats3:
+    <<: *nats
+    container_name: nats3
+    command: ["-js", "-sd", "/data", "-n", "nats3", "--cluster_name", "sd-nats",
+              "--cluster", "nats://0.0.0.0:6222", "--cluster_advertise", "172.32.0.53:6222",
+              "--routes", "nats://172.32.0.51:6222,nats://172.32.0.52:6222",
+              "--client_advertise", "172.33.0.53:4222", "-m", "8222"]
+    networks: {interna: {ipv4_address: 172.32.0.53}, clientes: {ipv4_address: 172.33.0.53}}
+  cliente-nats:
+    image: natsio/nats-box:latest
+    container_name: cliente-nats
+    mem_limit: 128m
+    entrypoint: ["sleep", "infinity"]
+    environment:
+      NATS_URL: "nats://172.33.0.51:4222,nats://172.33.0.52:4222,nats://172.33.0.53:4222"
+    volumes: ["../go/bin:/app:ro"]
+    networks: {clientes: {ipv4_address: 172.33.0.100}}
+
+networks:
+  interna: {ipam: {config: [{subnet: 172.32.0.0/24}]}}
+  clientes: {ipam: {config: [{subnet: 172.33.0.0/24}]}}

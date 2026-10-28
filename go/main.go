@@ -45,6 +45,7 @@ func main() {
 	fs.StringVar(&o.Sys, "sys", "kafka", "kafka | nats")
 	fs.StringVar(&o.Addrs, "addrs", "", "endereços dos brokers (padrão do laboratório se vazio)")
 	fs.StringVar(&o.Acks, "acks", "all", "kafka: all | 1")
+	fs.StringVar(&o.KeyMode, "key-mode", "fixed", "kafka: fixed (uma chave) | id (múltiplas chaves)")
 	fs.BoolVar(&o.Idem, "idem", false, "idempotência (kafka: produtor idempotente; nats: Nats-Msg-Id)")
 	fs.DurationVar(&o.Timeout, "timeout", 3*time.Second, "tempo máximo por envio")
 	fs.IntVar(&o.MinISR, "minisr", 2, "kafka: min.insync.replicas do tópico")
@@ -185,6 +186,8 @@ func verify(ctx context.Context, b Backend, file string, idle time.Duration) {
 	f.Close()
 
 	seen := map[uint64]int{}
+	perPartitionMax := map[string]uint64{}
+	perPartitionOOO := 0
 	var maxID uint64
 	total, ooo := 0, 0
 	err = b.Consume(ctx, idle, func(p []byte, pos string) {
@@ -198,6 +201,13 @@ func verify(ctx context.Context, b Backend, file string, idle time.Duration) {
 			return
 		}
 		seen[m.ID] = 1
+		if strings.HasPrefix(pos, "p") && strings.Contains(pos, "@") {
+			part := strings.SplitN(strings.TrimPrefix(pos, "p"), "@", 2)[0]
+			if previous, present := perPartitionMax[part]; present && m.ID < previous {
+				perPartitionOOO++
+			}
+			if m.ID > perPartitionMax[part] { perPartitionMax[part] = m.ID }
+		}
 		if m.ID < maxID {
 			ooo++
 			fmt.Printf("fora de ordem: id=%d chegou após id=%d (%s)\n", m.ID, maxID, pos)
@@ -226,6 +236,8 @@ func verify(ctx context.Context, b Backend, file string, idle time.Duration) {
 	fmt.Printf("PERDIDAS (confirmadas mas ausentes): %d %v\n", len(lost), lost)
 	fmt.Printf("DUPLICADAS: %d\n", dups)
 	fmt.Printf("FORA DE ORDEM: %d\n", ooo)
+	fmt.Printf("FORA DE ORDEM POR PARTIÇÃO: %d\n", perPartitionOOO)
+	fmt.Printf("PARTIÇÕES OBSERVADAS: %d\n", len(perPartitionMax))
 	fmt.Printf("FANTASMAS (erro no produtor, mas gravadas): %d\n", ghosts)
 }
 

@@ -1,0 +1,91 @@
+name: M2 - methodological audit E3 E5 E6 E8
+on:
+  pull_request:
+    paths:
+      - 'methodology/**'
+      - '.github/workflows/m2-methodology.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: m2-methodology-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  e5_e8_historical:
+    name: E5 matrix and E8 term audit of original #40732373570
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40732373570
+          name: m2-e5e7-40732373570-1
+          github-token: ${{ github.token }}
+          path: artifacts/historical/e5
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 40732373570
+          name: m2-e6e8-40732373570-1
+          github-token: ${{ github.token }}
+          path: artifacts/historical/e6
+      - run: |
+          python3 -m py_compile methodology/audit_historical.py
+          python3 methodology/audit_historical.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-methodology-historical-${{ github.run_id }}
+          path: artifacts/methodology-audit/
+          if-no-files-found: warn
+          retention-days: 30
+
+  e3_visibility:
+    name: E3 independent ACK and consumer visibility (5 samples)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+          cache: true
+          cache-dependency-path: go/go.sum
+      - name: Run strictly labeled client-visible probes
+        run: bash methodology/ci_e3_visibility.sh
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-methodology-e3-${{ github.run_id }}
+          path: artifacts/e3-visibility/
+          if-no-files-found: warn
+          retention-days: 30
+
+  e6_isolated:
+    name: E6 isolated client networks and independent clocks (5 cycles)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+          cache: true
+          cache-dependency-path: go/go.sum
+      - name: Build previously validated sdtool
+        run: |
+          (cd go && mkdir -p bin && CGO_ENABLED=0 GOOS=linux go build -mod=readonly -o bin/sdtool .)
+          python3 -m py_compile methodology/ci_e6_isolated.py
+      - name: Test separated minority and majority clients
+        run: python3 -u methodology/ci_e6_isolated.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-methodology-e6-${{ github.run_id }}
+          path: artifacts/methodology-e6/
+          if-no-files-found: warn
+          retention-days: 30

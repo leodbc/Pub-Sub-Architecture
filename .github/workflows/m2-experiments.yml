@@ -58,3 +58,26 @@ jobs:
           path: artifacts/smoke/
           if-no-files-found: warn
           retention-days: 30
+
+  e1e4:
+    name: E1-E4 measurements, verification and statistics
+    needs: smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+          cache: false
+      - name: Collect E1-E4 on Kafka and NATS
+        shell: bash
+        run: bash scripts/ci_e1_e4.sh
+      - name: Upload E1-E4 raw logs, CSV and statistical analysis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-e1e4-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/e1-e4/
+          if-no-files-found: warn
+          retention-days: 30

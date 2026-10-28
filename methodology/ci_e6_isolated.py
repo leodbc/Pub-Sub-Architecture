@@ -140,8 +140,20 @@ try:
     ident=8000000+(rep*1000)+(0 if sys=="kafka" else 100000)
     file=f"/tmp/e6base{rep}.csv"
     try:
-     status,rc=probe(sys,name+"_baseline",ident=ident,filename=file)
-     if status!="success":raise RuntimeError(name+" baseline unconfirmed")
+     # Recovery status via StreamInfo/ISR alone is not active-write readiness.
+     # Retried reference messages use unique IDs: any ambiguous ACK remains
+     # ambiguous, and every attempt is preserved for the audit trail.
+     baseline_ok=False
+     for baseline_attempt in range(15):
+      label=name+f"_baseline_attempt{baseline_attempt}"
+      status,rc=probe(sys,label,ident=ident+baseline_attempt,filename=file)
+      if status=="success":
+       baseline_ok=True
+       break
+      time.sleep(1)
+     if not baseline_ok:
+      if sys=="nats":nats_diagnostics(name+"_baseline_unavailable")
+      raise RuntimeError(name+" baseline never confirmed in 15 attempts; inspect logs")
      call(name+"_savebaseline",["docker","cp",normal+":"+file,str(OUT/(name+"_baseline.csv"))])
      call(name+"_create_private",["docker","network","create","--internal",
       "--subnet","172.45.100.0/24",net]);net_created=True

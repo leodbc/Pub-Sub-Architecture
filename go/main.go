@@ -51,6 +51,7 @@ func main() {
 	partitions := fs.Int("partitions", 1, "kafka: nº de partições")
 	replicas := fs.Int("replicas", 3, "fator de replicação")
 	count := fs.Int("count", 300, "probe: nº de mensagens")
+	startID := fs.Uint64("start-id", 1, "probe: ID inicial exclusivo por rodada, evita colisões entre probes")
 	interval := fs.Duration("interval", 100*time.Millisecond, "probe: intervalo entre mensagens")
 	retry := fs.Int("retry", 0, "probe: retentativas da aplicação após erro")
 	file := fs.String("file", "/tmp/acked.csv", "probe/verify: arquivo de confirmações")
@@ -86,7 +87,7 @@ func main() {
 		}
 		fmt.Printf("[%s] removido\n", o.Sys)
 	case "probe":
-		probe(b, o, *count, *interval, *retry, *file, *size)
+		probe(b, o, *startID, *count, *interval, *retry, *file, *size)
 	case "verify":
 		verify(ctx, b, *file, *idle)
 	case "bench":
@@ -103,7 +104,7 @@ func check(err error) {
 	}
 }
 
-func probe(b Backend, o Opts, count int, interval time.Duration, retry int, file string, size int) {
+func probe(b Backend, o Opts, firstID uint64, count int, interval time.Duration, retry int, file string, size int) {
 	f, err := os.Create(file)
 	check(err)
 	defer f.Close()
@@ -115,7 +116,8 @@ func probe(b Backend, o Opts, count int, interval time.Duration, retry int, file
 	var outages, lats []float64
 	okN, failN := 0, 0
 
-	for id := uint64(1); id <= uint64(count); id++ {
+	for i := 0; i < count; i++ {
+		id := firstID + uint64(i)
 		payload := mkPayload(id, size)
 		var pos string
 		var err error

@@ -133,13 +133,22 @@ def main():
  _,txt=kafka_script("e5_topic_postrestore",
  '/opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BS" --list',seconds=25)
  topic="m2_e5_noquorum_"+os.environ.get("GITHUB_RUN_ID","local")
- if topic in txt:
-  raise RuntimeError("Topic unexpectedly materialized after restoring majority: classify as ambiguous")
+ late_materialized = topic in txt
+ (OUT/"e5_late_materialization.json").write_text(json.dumps({
+  "topic":topic,"was_create_acknowledged_while_minority":False,
+  "created_topic_visible_after_quorum_return":late_materialized,
+  "interpretation":("Request timed out without client acknowledgement during loss of majority; "+
+    "the topic became visible only after controllers returned. Completion time is "+
+    "NOT observed; do not infer a successful metadata write during minority.") if late_materialized
+    else "Request did not get an acknowledgement during minority and topic remained absent after quorum restoration.",
+  "evidence":["e5_create_without_quorum.log","e5_topic_postrestore.log"]},indent=2))
+ print("E5_METADATA_NONACK", "POST_RESTORE_PRESENT" if late_materialized else "POST_RESTORE_ABSENT",flush=True)
  (OUT/"normative_summary.md").write_text(
  "# M2 normative targeted tests E2/E5/E7/E8\n\n"
  "E2: 36 actual published and consumed keyed records; offsets and partition asserted by client.\n"
- "E5: attempt to CREATE a NEW topic with only kafka3 alive (1 of 3 controllers), no confirmation. "
- "No conclusion about data loss; metadata operation separated from read/write of existing partitions.\n"
+ "E5: attempted CREATE with only kafka3 active (1/3 controllers); request timed out without ACK. "
+ "Compare E5 late_materialization JSON: topic may appear only after quorum returns; no proof of minority commit. "
+ "No inference of message loss; metadata availability is distinct from data availability.\n"
  "E7: manual commit of next offset 2 in a consumer group, process stopped without LeaveGroup, "
  "second process reads offsets 2,3,4,5. Topic has one partition, replication factor 3.\n"
  "E8: partition leader epoch recorded via Kafka Metadata API separately from KRaft controller "

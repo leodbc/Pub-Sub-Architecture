@@ -17,7 +17,8 @@ ARTIFACTS={
  "e3-client-visibility":12849007298,
  "e5-e8-audit":12848882349,
  "e6-kafka-isolated":12850545819,
- "e6-nats-isolated":12851670501
+ "e6-nats-isolated":12851670501,
+ "e5-timeout-late-materialization-actual":12853603465
 }
 EXPECTED_SHA256={
  "run17-e1e4":"fd3faa27ef9e84c7cf23f1a74e9f3f2fc2285b12df23019eb62cc8167044c064",
@@ -27,7 +28,8 @@ EXPECTED_SHA256={
  "e3-client-visibility":"9a5f070335a376576858d86137439c51633e2e4a4d34afc14b8709ffe92da410",
  "e5-e8-audit":"f46c2b2390461b32cca0b7e500c2ab8d7c8cc84c2308dc5f82161949f18d3c0c",
  "e6-kafka-isolated":"1a5db4f56707fdd4ce3d832fca57c22055574672a3a6ab3d8e89401932ec26af",
- "e6-nats-isolated":"480a2ba7884714a1c85f2a0ced5d70d36a73377edad0285b1c7e63ebe07d9598"
+ "e6-nats-isolated":"480a2ba7884714a1c85f2a0ced5d70d36a73377edad0285b1c7e63ebe07d9598",
+ "e5-timeout-late-materialization-actual":"3fb5d4186a0f3b4789afda0199acf6aa03e4e3776b1f9f5dcb2394fb6174fa59"
 }
 def gh(args,binary=False):
  p=subprocess.run(["gh","api",*args],stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=False)

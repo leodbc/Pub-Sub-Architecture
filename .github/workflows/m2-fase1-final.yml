@@ -1,0 +1,93 @@
+name: M2 - fechamento normativo E2 E5 E7 E8 e arquivo permanente
+on:
+  push:
+    branches:
+      - feat/m2-actions-evidence-20261028
+    paths:
+      - 'methodology/fase1_normativo.go'
+      - 'methodology/ci_normativo.py'
+      - 'methodology/archive_release.py'
+      - '.github/workflows/m2-fase1-final.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: m2-final-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  normativo:
+    name: E2 keyed offsets, E7 committed group resume, E8 epochs, E5 KRaft metadata quorum
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+          cache: true
+          cache-dependency-path: go/go.sum
+      - name: Static validation and compile Go
+        run: |
+          set -euo pipefail
+          python3 -m py_compile methodology/ci_normativo.py methodology/archive_release.py
+          (cd go && mkdir -p bin && CGO_ENABLED=0 GOOS=linux go build -mod=readonly -o bin/fase1_normativo ../methodology/fase1_normativo.go)
+          (cd go && CGO_ENABLED=0 GOOS=linux go build -mod=readonly -o bin/sdtool .)
+      - name: Directed real Docker experiments only (no previous batch rerun)
+        run: python3 -u methodology/ci_normativo.py
+      - name: Preserve all raw evidence on error or success
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-fase1-normative-${{ github.run_id }}
+          path: artifacts/fase1-normativa/
+          retention-days: 30
+          if-no-files-found: warn
+
+  archive:
+    name: Verify archive checksums and publish durable GitHub Release
+    needs: normativo
+    if: github.repository == 'leodbc/Pub-Sub-Architecture' && github.ref == 'refs/heads/feat/m2-actions-evidence-20261028'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: m2-fase1-evidencias-2026-10-28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: m2-fase1-normative-${{ github.run_id }}
+          path: artifacts/normative_download/
+      - name: Download ORIGINAL artifact ZIP bytes; verify GitHub SHA-256 and scan for sensitive material
+        run: python3 methodology/archive_release.py
+      - name: Publish permanent package without overwriting an existing release
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::Release tag already exists; manual reconciliation required (no overwrites)"
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" artifacts/permanent/*.zip artifacts/permanent/manifest.json \
+            --target "$GITHUB_SHA" --title "M2 UNIVALI — Fase 1, evidências preservadas" \
+            --notes-file artifacts/permanent/NOTAS_RELEASE.md --latest=false
+          gh release view "$RELEASE_TAG" --json url,tagName,assets > artifacts/permanent/release-verification.json
+          mkdir -p /tmp/m2-release-verify
+          gh release download "$RELEASE_TAG" --pattern manifest.json --dir /tmp/m2-release-verify
+          cmp artifacts/permanent/manifest.json /tmp/m2-release-verify/manifest.json
+          cat artifacts/permanent/release-verification.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m2-fase1-archive-manifest-${{ github.run_id }}
+          path: |
+            artifacts/permanent/manifest.json
+            artifacts/permanent/release-verification.json
+          if-no-files-found: warn
+          retention-days: 30

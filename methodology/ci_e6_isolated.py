@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Strictly isolated E6 clients, write/read both sides, separated time intervals."""
-import csv,json,re,statistics,subprocess,time
+import csv,json,re,statistics,subprocess,time,sys,urllib.request
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent.parent; OUT=ROOT/"artifacts"/"methodology-e6";OUT.mkdir(parents=True,exist_ok=True)
 systems={"kafka":("cliente",["kafka1","kafka2","kafka3"],"apache/kafka:4.4.0"),
          "nats":("cliente-nats",["nats1","nats2","nats3"],"natsio/nats-box:latest")}
 metrics=[];operations=[]
+SELECTED=(sys.argv[2] if len(sys.argv)==3 and sys.argv[1]=="--sys" else "both")
+if SELECTED not in ("both","kafka","nats"):raise SystemExit("usage: ci_e6_isolated.py [--sys kafka|nats]")
 def call(label,args,timeout=25,optional=False):
  start=time.monotonic()
  try:
@@ -54,14 +56,36 @@ def health_time(sys,label):
   time.sleep(.8)
  (OUT/(label+"_observations.log")).write_text("\n".join(observations)+"\n")
  raise RuntimeError(sys+" did not restore three replicas")
+def nats_diagnostics(label):
+ for node in ("nats1","nats2","nats3"):
+  call(label+"_container_"+node,["docker","logs",node],timeout=15,optional=True)
+ for i in (51,52,53):
+  for endpoint in ("routez","jsz"):
+   url=f"http://172.33.0.{i}:8222/{endpoint}"
+   try:
+    with urllib.request.urlopen(url,timeout=2) as f: body=f.read().decode("utf-8","replace")
+   except Exception as e: body="HTTP monitor unavailable: "+str(e)
+   (OUT/(label+f"_{i}_{endpoint}.json")).write_text(body)
+
 def setup(sys):
  call(sys+"_start",["docker","compose","-f",sys+"/docker-compose.yml","up","-d"],timeout=120)
- for n in range(45):
-  rc,out=sd(sys,sys+f"_setup{n}","setup")
-  if rc==0 and "criado" in out:break
-  time.sleep(2)
- else:raise RuntimeError(sys+" setup failed")
- health_time(sys,sys+"_baseline")
+ for generation in range(2):
+  for n in range(35):
+   rc,out=sd(sys,sys+f"_setup_generation{generation}_attempt{n}","setup")
+   if rc==0 and "criado" in out:
+    health_time(sys,sys+"_baseline")
+    return
+   time.sleep(2)
+  if sys!="nats":break
+  nats_diagnostics(sys+"_startup_generation"+str(generation))
+  if generation==0:
+   # One bounded, fully logged restart BEFORE experimental measurements.
+   call(sys+"_startup_recreate_down",["docker","compose","-f",
+        "nats/docker-compose.yml","down","--remove-orphans"],timeout=40)
+   call(sys+"_startup_recreate_up",["docker","compose","-f",
+        "nats/docker-compose.yml","up","-d"],timeout=120)
+ if sys=="nats":nats_diagnostics("nats_startup_final")
+ raise RuntimeError(sys+" setup failed; consult routez/jsz and container logs")
 def probe(sys,label,cli=None,addr=None,ident=1,filename="/tmp/e6.csv"):
  args={"count":1,"start_id":ident,"timeout":"2s","interval":"1ms","file":filename}
  if addr:args["addrs"]=addr
@@ -106,6 +130,7 @@ def private(sys):
  return "172.45.100.10:19092" if sys=="kafka" else "nats://172.45.100.10:4222"
 try:
  for sys,(normal,nodes,image) in systems.items():
+  if SELECTED!="both" and sys!=SELECTED:continue
   setup(sys)
   try:
    for rep in range(1,6):
@@ -182,7 +207,8 @@ try:
    call(sys+"_down",["docker","compose","-f",sys+"/docker-compose.yml","down","--remove-orphans"],timeout=35,optional=True)
  save()
  for sys in systems:
+  if SELECTED!="both" and sys!=SELECTED:continue
   for kind in ("partition_duration","first_majority_ack","reconnect_to_healthy"):
    assert sum(m["system"]==sys and m["metric"]==kind for m in metrics)==5
- print("PASS: 5 repetitions per system and 3 independent E6 clock intervals")
+ print("PASS: selected systems had 5 repetitions and 3 independent E6 clock intervals")
 finally:save()

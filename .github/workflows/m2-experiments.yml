@@ -81,3 +81,31 @@ jobs:
           path: artifacts/e1-e4/
           if-no-files-found: warn
           retention-days: 30
+
+  e5e7:
+    name: E5/E7 - 5 real failover and ISR/JetStream catch-up cycles
+    needs: e1e4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+          cache: true
+          cache-dependency-path: go/go.sum
+      - name: Build and check scripts
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/ci_faults.py
+          (cd go && mkdir -p bin && CGO_ENABLED=0 GOOS=linux go build -mod=readonly -o bin/sdtool .)
+      - name: Execute live E5 and E7 fault injection
+        run: python3 -u scripts/ci_faults.py
+      - name: Upload all E5/E7 logs and measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-e5e7-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/e5-e7/
+          if-no-files-found: warn
+          retention-days: 30

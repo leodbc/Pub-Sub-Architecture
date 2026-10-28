@@ -20,9 +20,11 @@ type kafkaB struct {
 	cl     *kgo.Client
 	adm    *kadm.Client
 	minISR int
+	keyMode string
 }
 
 func newKafka(o Opts) (Backend, error) {
+	if o.KeyMode != "fixed" && o.KeyMode != "id" { return nil, fmt.Errorf("key-mode inválido: %s", o.KeyMode) }
 	seeds := strings.Split(o.Addrs, ",")
 	opts := []kgo.Opt{
 		kgo.SeedBrokers(seeds...),
@@ -44,7 +46,7 @@ func newKafka(o Opts) (Backend, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &kafkaB{seeds: seeds, cl: cl, adm: kadm.NewClient(cl), minISR: o.MinISR}, nil
+	return &kafkaB{seeds: seeds, cl: cl, adm: kadm.NewClient(cl), minISR: o.MinISR, keyMode: o.KeyMode}, nil
 }
 
 func (k *kafkaB) Setup(ctx context.Context, partitions, replicas int) error {
@@ -67,7 +69,9 @@ func (k *kafkaB) Reset(ctx context.Context) error {
 }
 
 func (k *kafkaB) Produce(ctx context.Context, id uint64, payload []byte) (string, error) {
-	rec := &kgo.Record{Topic: kafkaTopic, Key: []byte("k"), Value: payload} // mesma chave => mesma partição
+	key := []byte("k")
+	if k.keyMode == "id" { key = []byte(strconv.FormatUint(id, 10)) }
+	rec := &kgo.Record{Topic: kafkaTopic, Key: key, Value: payload}
 	if err := k.cl.ProduceSync(ctx, rec).FirstErr(); err != nil {
 		return "", err
 	}

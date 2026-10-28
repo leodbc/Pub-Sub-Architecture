@@ -45,12 +45,14 @@ func main() {
 	fs.StringVar(&o.Sys, "sys", "kafka", "kafka | nats")
 	fs.StringVar(&o.Addrs, "addrs", "", "endereços dos brokers (padrão do laboratório se vazio)")
 	fs.StringVar(&o.Acks, "acks", "all", "kafka: all | 1")
+	fs.StringVar(&o.KeyMode, "key-mode", "fixed", "kafka: fixed (uma chave) | id (múltiplas chaves)")
 	fs.BoolVar(&o.Idem, "idem", false, "idempotência (kafka: produtor idempotente; nats: Nats-Msg-Id)")
 	fs.DurationVar(&o.Timeout, "timeout", 3*time.Second, "tempo máximo por envio")
 	fs.IntVar(&o.MinISR, "minisr", 2, "kafka: min.insync.replicas do tópico")
 	partitions := fs.Int("partitions", 1, "kafka: nº de partições")
 	replicas := fs.Int("replicas", 3, "fator de replicação")
 	count := fs.Int("count", 300, "probe: nº de mensagens")
+	startID := fs.Uint64("start-id", 1, "probe: ID inicial exclusivo por rodada, evita colisões entre probes")
 	interval := fs.Duration("interval", 100*time.Millisecond, "probe: intervalo entre mensagens")
 	retry := fs.Int("retry", 0, "probe: retentativas da aplicação após erro")
 	file := fs.String("file", "/tmp/acked.csv", "probe/verify: arquivo de confirmações")
@@ -86,7 +88,7 @@ func main() {
 		}
 		fmt.Printf("[%s] removido\n", o.Sys)
 	case "probe":
-		probe(b, o, *count, *interval, *retry, *file, *size)
+		probe(b, o, *startID, *count, *interval, *retry, *file, *size)
 	case "verify":
 		verify(ctx, b, *file, *idle)
 	case "bench":
@@ -103,7 +105,7 @@ func check(err error) {
 	}
 }
 
-func probe(b Backend, o Opts, count int, interval time.Duration, retry int, file string, size int) {
+func probe(b Backend, o Opts, firstID uint64, count int, interval time.Duration, retry int, file string, size int) {
 	f, err := os.Create(file)
 	check(err)
 	defer f.Close()
@@ -115,7 +117,8 @@ func probe(b Backend, o Opts, count int, interval time.Duration, retry int, file
 	var outages, lats []float64
 	okN, failN := 0, 0
 
-	for id := uint64(1); id <= uint64(count); id++ {
+	for i := 0; i < count; i++ {
+		id := firstID + uint64(i)
 		payload := mkPayload(id, size)
 		var pos string
 		var err error
@@ -183,6 +186,8 @@ func verify(ctx context.Context, b Backend, file string, idle time.Duration) {
 	f.Close()
 
 	seen := map[uint64]int{}
+	perPartitionMax := map[string]uint64{}
+	perPartitionOOO := 0
 	var maxID uint64
 	total, ooo := 0, 0
 	err = b.Consume(ctx, idle, func(p []byte, pos string) {
@@ -196,6 +201,13 @@ func verify(ctx context.Context, b Backend, file string, idle time.Duration) {
 			return
 		}
 		seen[m.ID] = 1
+		if strings.HasPrefix(pos, "p") && strings.Contains(pos, "@") {
+			part := strings.SplitN(strings.TrimPrefix(pos, "p"), "@", 2)[0]
+			if previous, present := perPartitionMax[part]; present && m.ID < previous {
+				perPartitionOOO++
+			}
+			if m.ID > perPartitionMax[part] { perPartitionMax[part] = m.ID }
+		}
 		if m.ID < maxID {
 			ooo++
 			fmt.Printf("fora de ordem: id=%d chegou após id=%d (%s)\n", m.ID, maxID, pos)
@@ -224,6 +236,8 @@ func verify(ctx context.Context, b Backend, file string, idle time.Duration) {
 	fmt.Printf("PERDIDAS (confirmadas mas ausentes): %d %v\n", len(lost), lost)
 	fmt.Printf("DUPLICADAS: %d\n", dups)
 	fmt.Printf("FORA DE ORDEM: %d\n", ooo)
+	fmt.Printf("FORA DE ORDEM POR PARTIÇÃO: %d\n", perPartitionOOO)
+	fmt.Printf("PARTIÇÕES OBSERVADAS: %d\n", len(perPartitionMax))
 	fmt.Printf("FANTASMAS (erro no produtor, mas gravadas): %d\n", ghosts)
 }
 

@@ -1,0 +1,162 @@
+name: M2 - Kafka NATS experiment validation
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/m2-experiments.yml'
+      - 'go/**'
+      - 'kafka/**'
+      - 'nats/**'
+      - 'scripts/**'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m2-experiments-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false # unique SHA: queued runs are not displaced by later PR commits
+
+jobs:
+  smoke:
+    name: Compile + 3-node clusters + publish/consume
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+          cache: false # go.sum not committed yet; pin dependencies after first successful build
+      - name: Record runner & Docker versions
+        run: |
+          mkdir -p artifacts/smoke
+          (date -u; uname -a; go version; docker version; docker compose version; git rev-parse HEAD) > artifacts/smoke/host.txt 2>&1
+          cat artifacts/smoke/host.txt
+      - name: Compile sdtool for Linux
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd go
+          mkdir -p bin
+          go mod tidy
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o bin/sdtool .
+          test -s bin/sdtool
+          file bin/sdtool
+          go version -m bin/sdtool | tee ../artifacts/smoke/build.txt
+          git diff -- go.mod go.sum > ../artifacts/smoke/dependencies.diff || true
+          cp go.mod ../artifacts/smoke/resolved-go.mod
+          cp go.sum ../artifacts/smoke/resolved-go.sum
+      - name: Execute Kafka and NATS smoke experiment
+        shell: bash
+        run: bash scripts/ci_smoke.sh
+      - name: Upload raw evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/smoke/
+          if-no-files-found: warn
+          retention-days: 30
+
+  e1e4:
+    name: E1-E4 measurements, verification and statistics
+    needs: smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+          cache: false
+      - name: Collect E1-E4 on Kafka and NATS
+        shell: bash
+        run: bash scripts/ci_e1_e4.sh
+      - name: Upload E1-E4 raw logs, CSV and statistical analysis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-e1e4-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/e1-e4/
+          if-no-files-found: warn
+          retention-days: 30
+
+  e5e7:
+    name: E5/E7 - 5 real failover and ISR/JetStream catch-up cycles
+    needs: e1e4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+          cache: true
+          cache-dependency-path: go/go.sum
+      - name: Build and check scripts
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/ci_faults.py
+          (cd go && mkdir -p bin && CGO_ENABLED=0 GOOS=linux go build -mod=readonly -o bin/sdtool .)
+      - name: Execute live E5 and E7 fault injection
+        run: python3 -u scripts/ci_faults.py
+      - name: Upload all E5/E7 logs and measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-e5e7-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/e5-e7/
+          if-no-files-found: warn
+          retention-days: 30
+
+  e6e8:
+    name: E6/E8 - partitions and coordinator elections (5 cycles each)
+    needs: e1e4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+          cache: true
+          cache-dependency-path: go/go.sum
+      - name: Build and check scripts
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/ci_partition_coord.py
+          (cd go && mkdir -p bin && CGO_ENABLED=0 GOOS=linux go build -mod=readonly -o bin/sdtool .)
+      - name: Run E6 network partitions and E8 elections on three-node clusters
+        run: python3 -u scripts/ci_partition_coord.py
+      - name: Upload raw partition and leadership evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-e6e8-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/e6-e8/
+          if-no-files-found: warn
+          retention-days: 30
+
+  e9:
+    name: E9 - compare verified Kafka and NATS E3-E8 data
+    needs: [e1e4, e5e7, e6e8]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: m2-*
+          path: artifacts/collected/
+          merge-multiple: false
+      - name: Verify sample counts and calculate evidence-only comparison
+        run: python3 scripts/ci_compare_e9.py
+      - name: Upload E9 comparative evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-e9-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/e9/
+          if-no-files-found: warn
+          retention-days: 30

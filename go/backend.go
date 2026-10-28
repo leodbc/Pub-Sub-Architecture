@@ -13,6 +13,7 @@ type Opts struct {
 	Sys     string
 	Addrs   string
 	Acks    string // kafka: "all" ou "1"
+	KeyMode string // kafka: "fixed" ou "id"
 	Idem    bool   // kafka: produtor idempotente | nats: Nats-Msg-Id (deduplicação)
 	Timeout time.Duration
 	MinISR  int

@@ -117,7 +117,7 @@ def main():
   cmd='/opt/kafka/bin/kafka-topics.sh --bootstrap-server 172.31.0.43:19092 --create --if-not-exists --topic m2_e5_noquorum_'
   cmd+=os.environ.get("GITHUB_RUN_ID","local")
   cmd+=' --partitions 1 --replication-factor 3'
-  rc,output=kafka_script("e5_create_without_quorum","timeout 30s "+cmd,seconds=38,expected=False)
+  rc,output=kafka_script("e5_create_without_quorum",cmd,seconds=32,expected=False)
   if rc==0 or re.search(r"created topic|topic .* created",output,re.I):
    raise RuntimeError("Unexpected Kafka metadata CREATE success without controller quorum")
   classification="timeout_no_confirmation" if rc==124 else "api_error_no_confirmation"

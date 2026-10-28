@@ -99,7 +99,7 @@ func epochs(topic string){
  ctx,stop:=context.WithTimeout(context.Background(),20*time.Second);defer stop()
  details,err:=a.ListTopics(ctx,topic);must(err)
  rows:=[]map[string]int32{}
- for _,p:=range details[topic].Sorted(){
+ for _,p:=range details[topic].Partitions.Sorted(){
   if p.Err!=nil {panic(p.Err)}
   if p.LeaderEpoch<0{panic("leader epoch not supported")}
   rows=append(rows,map[string]int32{"partition":p.Partition,"leader":p.Leader,"leader_epoch":p.LeaderEpoch})

@@ -19,6 +19,16 @@ ARTIFACTS={
  "e6-kafka-isolated":12850545819,
  "e6-nats-isolated":12851670501
 }
+EXPECTED_SHA256={
+ "run17-e1e4":"fd3faa27ef9e84c7cf23f1a74e9f3f2fc2285b12df23019eb62cc8167044c064",
+ "run17-e5e7":"0890b463784056323f8f2c5122de2252d3d0c4405b4be99e3399ca7975d9d33e",
+ "run17-e6e8":"f1df779b1a00365910810de51fdff99b25f6cbda16ac4078a02a6d823693dd3d",
+ "run17-e9":"4a16547dafc2a41bdc74475135595ddf78daca1afe1038239999ac33517cd06a",
+ "e3-client-visibility":"9a5f070335a376576858d86137439c51633e2e4a4d34afc14b8709ffe92da410",
+ "e5-e8-audit":"f46c2b2390461b32cca0b7e500c2ab8d7c8cc84c2308dc5f82161949f18d3c0c",
+ "e6-kafka-isolated":"1a5db4f56707fdd4ce3d832fca57c22055574672a3a6ab3d8e89401932ec26af",
+ "e6-nats-isolated":"480a2ba7884714a1c85f2a0ced5d70d36a73377edad0285b1c7e63ebe07d9598"
+}
 def gh(args,binary=False):
  p=subprocess.run(["gh","api",*args],stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=False)
  if p.returncode:raise RuntimeError(f"GitHub API error on {args[0]}: {p.stderr.decode(errors='replace')[-1200:]}")
@@ -48,7 +58,7 @@ for logical,artifact_id in ARTIFACTS.items():
  raw=gh([f"/repos/{REPO}/actions/artifacts/{artifact_id}/zip"],binary=True)
  measured=sha(raw)
  expected=meta.get("digest","").removeprefix("sha256:")
- if not expected or measured!=expected:raise RuntimeError(f"SHA mismatch for artifact {artifact_id}: {measured} != {expected}")
+ if not expected or measured!=expected or measured!=EXPECTED_SHA256[logical]:raise RuntimeError(f"SHA mismatch for artifact {artifact_id}: {measured} != {expected} != anchored {EXPECTED_SHA256[logical]}")
  members=clean_zip(raw)
  name=f"{logical}__artifact_{artifact_id}.zip"
  (OUT/name).write_bytes(raw)

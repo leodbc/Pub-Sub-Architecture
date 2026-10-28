@@ -22,3 +22,10 @@ Source: [Pull Request #1](https://github.com/leodbc/Pub-Sub-Architecture/pull/1)
 - Every fix must be validated by its **own GitHub Actions run**, not inferred from previous successes.
 
 The test harness does not simulate or backfill measurements. Missing repetitions remain ND.
+
+## Run #15 and upstream root cause
+- [#40728675576](https://github.com/leodbc/Pub-Sub-Architecture/actions/runs/40728675576): smoke, E1–E4 and E5/E7 passed (20 live observations for E5/E7). E6/E8 failed during **Kafka E8 first recovery**; E9 skipped. Kafka controller election did advance LeaderEpoch from 1 to 2, but broker kafka2 failed to rejoin the ISR.
+- Raw artifact `m2-e6e8-40728675576-1`, ID `12833749004`: `kafka_docker_logs.log` contains a native-image crash in `com.oracle.svm.core.posix.headers.Pwd.getpwuid` immediately after restarting kafka2. The stack signature matches Apache Kafka [KAFKA-20314](https://issues.apache.org/jira/browse/KAFKA-20314): a thread-unsafe libc lookup in the older GraalVM native image.
+- Apache Kafka release [4.4.0](https://kafka.apache.org/community/downloads/) (2026-10-22) incorporates [apache/kafka#22059](https://github.com/apache/kafka/pull/22059), upgrading the native image build to GraalVM 25 and replacing `getpwuid()` with thread-safe `getpwuid_r()`.
+- **Fix under test:** upgrade Kafka broker image `apache/kafka-native:4.1.0` → `4.4.0` and CLI image `apache/kafka:4.1.0` → `4.4.0` together, retaining the 3-node KRaft topology. E8 shutdown is made graceful (10s) to reduce unrelated abrupt-stop variation. This is a version change, so all measurements should be rerun under the new version rather than pooled with Kafka 4.1.0.
+- The change is not considered successful until a fresh complete GitHub Actions run passes all experimental gates and uploads source evidence.

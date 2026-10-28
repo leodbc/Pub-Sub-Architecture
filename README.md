@@ -12,6 +12,7 @@ CGO_ENABLED=0 GOOS=linux go build -o bin/sdtool .   # binário estático, vai pa
 (Mac com Apple Silicon: acrescente GOARCH=arm64.)
 
 ## 2. Kafka (baseline, E1 a E8)
+O ambiente usa `apache/kafka-native:4.4.0` (GraalVM 25) nos três brokers e `apache/kafka:4.4.0` no cliente. A versão 4.1.0 apresentou `SIGSEGV` intermitente em startup após falha induzida; veja `docs/ci-incidente-2026-10-28.md` e o bug oficial KAFKA-20314. A versão nova exige repetir a bateria completa para manter a comparabilidade.
 ```bash
 cd kafka && docker compose up -d
 docker exec cliente /app/sdtool setup --sys kafka

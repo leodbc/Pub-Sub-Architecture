@@ -87,7 +87,10 @@ def wait(sys,label,limit=125):
         except Exception as exc:
             with path.open("a") as f:f.write(f"{time.time()} {exc}\n")
         time.sleep(1)
-    raise RuntimeError(label+" failed to recover replication health")
+    for node in nodes[sys]:
+        execute(label+"_docker_state_"+node,["docker","inspect","--format",
+            "{{json .State}}",node],timeout=10,optional=True)
+    raise RuntimeError(label+" failed to recover replication health; inspect Docker state and native logs")
 
 def probe(sys,label,addrs=None):
     global seq
@@ -186,7 +189,7 @@ def experiment_e8(sys,rep):
     stopped=False
     t0=time.monotonic()
     try:
-        execute(name+"_stop",["docker","stop","-t","2",old],timeout=12)
+        execute(name+"_stop",["docker","stop","-t","10",old],timeout=22)
         stopped=True
         seen=None
         for i in range(70):

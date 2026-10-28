@@ -18,6 +18,25 @@ finalize() {
 }
 trap finalize EXIT
 bash scripts/coletar_e1_e4.sh "$PWD" "$OUT" --permitir-reset
+# Complement E4: Kafka has no total order across 3 partitions.
+# Switch from constant key (existing collector) to 90 distinct keys and inspect
+# offsets, partition distribution and within-partition order independently.
+docker exec cliente /app/sdtool reset --sys kafka > "$OUT/e4_kafka_multi_reset.log" 2>&1
+for i in $(seq 1 50); do
+  if ! docker exec cliente sh -c '/opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BS" --describe --topic probe' >/dev/null 2>&1; then break; fi
+  sleep 1
+done
+docker exec cliente /app/sdtool setup --sys kafka --partitions 3 --replicas 3 > "$OUT/e4_kafka_multi_setup.log" 2>&1
+docker exec cliente sh -c '/opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BS" --describe --topic probe' > "$OUT/e4_kafka_multi_topology.log" 2>&1
+docker exec cliente /app/sdtool probe --sys kafka --key-mode id --count 90 --interval 10ms --file /tmp/e4_multi.csv > "$OUT/e4_kafka_multi_probe.log" 2>&1
+docker exec cliente /app/sdtool verify --sys kafka --file /tmp/e4_multi.csv --idle 2s > "$OUT/e4_kafka_multi_verify.log" 2>&1
+docker cp cliente:/tmp/e4_multi.csv "$OUT/e4_kafka_multi_acked.csv"
+grep -q 'lidas=90  únicas=90  confirmadas ao produtor=90' "$OUT/e4_kafka_multi_verify.log"
+grep -q 'PARTIÇÕES OBSERVADAS: 3' "$OUT/e4_kafka_multi_verify.log"
+grep -q 'FORA DE ORDEM POR PARTIÇÃO: 0' "$OUT/e4_kafka_multi_verify.log"
+grep -q 'PERDIDAS (confirmadas mas ausentes): 0 ' "$OUT/e4_kafka_multi_verify.log"
+grep -q 'DUPLICADAS: 0' "$OUT/e4_kafka_multi_verify.log"
+
 python3 scripts/analisar_coletas.py "$OUT"
 python3 - "$OUT" <<'PY'
 import pathlib, re, sys

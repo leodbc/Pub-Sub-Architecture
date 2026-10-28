@@ -1,7 +1,7 @@
 # Trabalho 2: Pub/Sub, Ênfase D (Kafka x NATS JetStream) com ferramenta em Go
 
 ## 0. Pré-requisitos
-Docker + Compose, Git, Go 1.23+ (no host; o binário roda dentro dos contêineres).
+Docker + Compose, Git, Go **1.26.2** (definido em `go/go.mod`; o binário roda dentro dos contêineres).
 
 ## 1. Compilar a ferramenta (uma vez)
 ```bash
@@ -62,3 +62,42 @@ Janelas de indisponibilidade: repita 5x e calcule média e desvio (exigência R7
 - `docker compose down` apaga dados: use `stop/start` entre experimentos.
 - Limpe entre rodadas: `sdtool reset` + `sdtool setup`.
 - Registre a previsão ANTES de cada experimento.
+
+## 7. GitHub Actions e evidências verificáveis (M2, Ênfase D)
+
+O Pull Request da branch de experimentos usa o workflow
+[`.github/workflows/m2-experiments.yml`](.github/workflows/m2-experiments.yml):
+ao abrir/atualizar um Pull Request, o GitHub provisiona um runner **Ubuntu 24.04 com Docker**, executando as etapas dependentes na ordem abaixo.
+
+1. **smoke** — compila o `sdtool` no Go definido em `go.mod`; sobe clusters Kafka KRaft e NATS JetStream de três nós; verifica 12 produções e consumos em cada sistema.
+2. **e1e4** — executa o coletor de `scripts/coletar_e1_e4.sh` e `scripts/analisar_coletas.py`; verifica E2/E4 e cinco execuções de E3 por configuração, sem erros; salva métricas e estatísticas amostrais.
+3. **e5e7** — após E1–E4, provoca **cinco falhas de líder por sistema**, testa operações com dois e um nó, restaura os brokers e mede o retorno das réplicas ao ISR/quórum, além de gerar `sdtool verify` e CSV.
+4. **e6e8** — após E1–E4, isola o líder da rede interna, mantendo a rede de clientes; restaura a rede e, em cinco repetições, observa eleição de coordenador e retorno à saúde.
+5. **e9** — só executa se E1–E8 tiverem sido aprovados no Actions. Reúne artefatos dos experimentos e produz comparação Kafka × NATS **exigindo cinco observações reais em cada métrica temporal**, sem estimativas para dados ausentes.
+
+Os artefatos `m2-smoke-*`, `m2-e1e4-*`, `m2-e5e7-*`, `m2-e6e8-*` e `m2-e9-*`
+ficam disponíveis na página de **Actions → Execução → Artifacts** por 30 dias.
+Logs brutos, tabelas CSV, descrições de cluster, resultados `verify` e resumos são
+salvos inclusive em jobs com falha. Uma execução cancelada ou reprovada **não comprova**
+a conclusão de seu experimento. Os resultados confirmados aparecem também na
+conversa do Pull Request.
+
+**Limites de validade acadêmica:** E2 requer o diagrama de sequência próprio e a
+demonstração do caminho interno da operação. O E4 original testa uma única
+partição/chave: são necessários testes adicionais para contrastar ordem entre
+partições no Kafka. A partição de rede E6, isolando apenas o canal interno, ainda
+permite redirecionamento por metadata do Kafka na rede dos clientes; apontar um
+bootstrap para a minoria não equivale a bloquear todo o tráfego do cliente com a
+maioria. Essas limitações devem constar no relatório, junto à análise CAP/PACELC.
+O CI não substitui o relatório de 15–25 páginas, o seminário e as respostas Q1–Q14/S1–S4.
+
+Em um terminal local para reproduzir apenas a compilação travada em checksum:
+
+```bash
+cd go
+go mod download
+CGO_ENABLED=0 GOOS=linux go build -mod=readonly -o bin/sdtool .
+```
+
+A aplicação usa endereços e portas internos de laboratório sem autenticação;
+não conecte esses clusters a redes públicas ou de produção.

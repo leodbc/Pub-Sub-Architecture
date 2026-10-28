@@ -152,11 +152,24 @@ def experiment_e6(sys,rep):
         disconnected=True
         # Majority may elect a new leader. Single seed on minority DOES NOT guarantee
         # traffic confinement in Kafka: broker metadata can redirect to majority.
-        majority=probe(sys,name+"_majority_client")
+        majority=False
+        attempts=[]
+        # Give the two remaining brokers time to elect a leader.
+        # Every failed publish is retained as a separate raw log.
+        for attempt in range(20):
+            confirmed=probe(sys,name+f"_majority_attempt{attempt}")
+            attempts.append((attempt,confirmed))
+            if confirmed:
+                majority=True
+                break
+            time.sleep(1)
         minority=probe(sys,name+"_minority_seed",addrs=client)
+        execute(name+"_isolated_node_networks",["docker","inspect","--format",
+                "{{json .NetworkSettings.Networks}}",old],timeout=10)
         (OUT/(name+"_outcomes.txt")).write_text(
-            f"old_leader={old}\nmajority_write_ack={majority}\nminority_seed_ack={minority}\n"
+            f"old_leader={old}\nmajority_write_ack={majority}\nmajority_attempts={attempts}\nminority_seed_ack={minority}\n"
             "CAVEAT: a single bootstrap seed is not a true client-side network partition.\n")
+        if not majority:raise RuntimeError(name+": majority never confirmed a write during partition")
         try:leader(sys,name+"_during")
         except Exception as exc:(OUT/(name+"_leader_error.log")).write_text(str(exc))
     finally:

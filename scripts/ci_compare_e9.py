@@ -57,6 +57,9 @@ for sys in ("kafka","nats"):
         outcome=require_one(f"e5_{sys}_r{rep}_quorum.txt").read_text()
         if "one_node_acks_all_confirmed=False" not in outcome:
             raise RuntimeError(f"E5/{sys} repetition {rep}: quorum loss not demonstrated")
+        e6=require_one(f"e6_{sys}_r{rep}_outcomes.txt").read_text()
+        if "majority_write_ack=True" not in e6:
+            raise RuntimeError(f"E6/{sys} repetition {rep}: no majority publish during partition")
 
 report=[
 "# E9 — Comparação experimental Kafka KRaft × NATS JetStream",

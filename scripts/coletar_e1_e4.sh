@@ -35,6 +35,23 @@ capture() {
   fi
 }
 
+retry_setup() {
+  local sys="$1" label="$2" cli attempt output
+  if [[ "$sys" == kafka ]]; then cli=cliente; else cli=cliente-nats; fi
+  for attempt in $(seq 1 45); do
+    output="$OUT/$label-attempt-$attempt.log"
+    printf '===== %s attempt %s | %s =====\n' "$label" "$attempt" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$output"
+    if docker exec "$cli" /app/sdtool setup --sys "$sys" >> "$output" 2>&1; then
+      cp "$output" "$OUT/$label.log"
+      echo "OK: $label na tentativa $attempt"
+      return 0
+    fi
+    sleep 2
+  done
+  echo "FALHOU: $label após 45 tentativas; logs preservados" >&2
+  return 1
+}
+
 reset_setup() {
   local sys="$1" cli
   if [[ "$sys" == kafka ]]; then cli=cliente; else cli=cliente-nats; fi
@@ -50,7 +67,7 @@ reset_setup() {
     sleep 1
   done
   if [[ $deleted != 1 ]]; then echo "Falha: recurso $sys não desapareceu após reset" >&2; exit 1; fi
-  capture "${sys}_setup_$(date +%s)" docker exec "$cli" /app/sdtool setup --sys "$sys"
+  retry_setup "$sys" "${sys}_setup_$(date +%s)"
 }
 
 capture host_info bash -c 'date -u +%Y-%m-%dT%H:%M:%SZ; uname -a; go version; docker version; docker compose version; git -C "$1" rev-parse HEAD' bash "$ROOT"
@@ -65,10 +82,10 @@ capture kafka_ps docker compose -f "$ROOT/kafka/docker-compose.yml" ps
 capture nats_ps docker compose -f "$ROOT/nats/docker-compose.yml" ps
 
 # E1: estados e líderes; 'setup' não apaga tópicos/streams já existentes.
-capture e1_kafka_setup docker exec cliente /app/sdtool setup --sys kafka
+retry_setup kafka e1_kafka_setup
 capture e1_kafka_topic docker exec cliente sh -c '/opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BS" --describe --topic probe'
 capture e1_kafka_quorum docker exec cliente sh -c '/opt/kafka/bin/kafka-metadata-quorum.sh --bootstrap-server "$BS" describe --status'
-capture e1_nats_setup docker exec cliente-nats /app/sdtool setup --sys nats
+retry_setup nats e1_nats_setup
 capture e1_nats_stream docker exec cliente-nats nats stream info PROBE
 
 # E2: após reset explícito, são esperadas 10 mensagens sem histórico contaminante.

@@ -43,6 +43,11 @@ for exp in ("E5","E6","E7","E8"):
         vals=grouped.get((exp,sys),[])
         if len(vals)!=5:
             raise RuntimeError(f"{exp}/{sys}: expected five observed measurements, got {len(vals)}")
+multi=require_one("e4_kafka_multi_verify.log").read_text()
+if ("PARTIÇÕES OBSERVADAS: 3" not in multi or
+    "FORA DE ORDEM POR PARTIÇÃO: 0" not in multi or
+    "lidas=90  únicas=90  confirmadas ao produtor=90" not in multi):
+    raise RuntimeError("Kafka multi-partition E4 proof missing or incomplete")
 for sys in ("kafka","nats"):
     for exp,expected in (("e2",10),("e4",100)):
         data=require_one(f"{exp}_{sys}_verify.log").read_text()
@@ -88,14 +93,14 @@ report += ["",
 "|---|---|---|",
 "| Unidade de replicação | Partição (ISR e high watermark) | Stream replicado (grupo Raft do stream) |",
 "| Coordenação de metadados | Quórum KRaft | Meta-grupo Raft |",
-"| Ordenação observada por E4 | Uma única partição com chave fixa | Sequência no stream PROBE |",
+"| Ordenação observada por E4 | Chave fixa em uma partição e 90 chaves distribuídas por 3 partições; ordem preservada por partição | Sequência no stream PROBE |",
 "| Quórum de escrita | acks=all e min.insync.replicas=2 | Commit majoritário com 3 réplicas |",
 "| Perda de maioria em E5 | Arquivos e5_kafka_r*_quorum.txt | Arquivos e5_nats_r*_quorum.txt |",
 "",
 "## Limitações e ameaças à validade",
 "",
 "- E2: trace lógico da operação ainda depende de diagrama/explicação; sdtool não observa cada salto interno.",
-"- E4: prova de ordem local apenas na configuração testada (um produtor e uma partição). Não demonstra múltiplas partições, concorrência ou exatamente-uma-vez.",
+"- E4: teste de uma chave/partição e de múltiplas chaves/3 partições usa apenas um produtor; não demonstra concorrência de produtores nem exactly-once.",
 "- E6: um cliente que recebe apenas o bootstrap da minoria ainda pode ser redirecionado ao líder da maioria. Isso NÃO substitui isolamento completo do cliente; o script registra esse limite.",
 "- E5/E7/E8: a métrica observada inclui intervalos de polling e sobrecarga do Docker/CLI; não equivale à latência interna do consenso.",
 "- E3: o benchmark é sequencial, 200 mensagens por rodada, sujeito a efeito de aquecimento e a diferenças entre APIs; não compara workloads idênticos de produção.",

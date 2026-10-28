@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: m2-experiments-\${{ github.ref }}
+  group: m2-experiments-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go/go.mod
-          cache-dependency-path: go/go.sum
+          cache: false # go.sum not committed yet; pin dependencies after first successful build
       - name: Record runner & Docker versions
         run: |
           mkdir -p artifacts/smoke
@@ -54,7 +54,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: m2-smoke-\${{ github.run_id }}-\${{ github.run_attempt }}
+          name: m2-smoke-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/smoke/
           if-no-files-found: warn
           retention-days: 30

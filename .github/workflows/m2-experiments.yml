@@ -1,0 +1,60 @@
+name: M2 - Kafka NATS experiment validation
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/m2-experiments.yml'
+      - 'go/**'
+      - 'kafka/**'
+      - 'nats/**'
+      - 'scripts/**'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m2-experiments-\${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Compile + 3-node clusters + publish/consume
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - name: Record runner & Docker versions
+        run: |
+          mkdir -p artifacts/smoke
+          (date -u; uname -a; go version; docker version; docker compose version; git rev-parse HEAD) > artifacts/smoke/host.txt 2>&1
+          cat artifacts/smoke/host.txt
+      - name: Compile sdtool for Linux
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd go
+          mkdir -p bin
+          go mod tidy
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o bin/sdtool .
+          test -s bin/sdtool
+          file bin/sdtool
+          go version -m bin/sdtool | tee ../artifacts/smoke/build.txt
+          git diff -- go.mod go.sum > ../artifacts/smoke/dependencies.diff || true
+          cp go.mod ../artifacts/smoke/resolved-go.mod
+          cp go.sum ../artifacts/smoke/resolved-go.sum
+      - name: Execute Kafka and NATS smoke experiment
+        shell: bash
+        run: bash scripts/ci_smoke.sh
+      - name: Upload raw evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-smoke-\${{ github.run_id }}-\${{ github.run_attempt }}
+          path: artifacts/smoke/
+          if-no-files-found: warn
+          retention-days: 30

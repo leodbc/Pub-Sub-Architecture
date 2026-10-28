@@ -14,8 +14,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: m2-experiments-${{ github.ref }}
-  cancel-in-progress: false
+  group: m2-experiments-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false # unique SHA: queued runs are not displaced by later PR commits
 
 jobs:
   smoke:

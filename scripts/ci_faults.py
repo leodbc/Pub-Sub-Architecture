@@ -74,7 +74,10 @@ def await_healthy(sys,label,limit=120):
             observations.append(f"{time.time():.3f} {exc}")
         time.sleep(.8)
     (OUT/(label+"_history.log")).write_text("\n".join(observations),encoding="utf-8")
-    raise RuntimeError(label+": could not confirm 3 replicas healthy")
+    for node in nodes[sys]:
+        run(label+"_final_state_"+node,["docker","inspect","--format","{{json .State}}",node],
+            timeout=10,allow_failure=True)
+    raise RuntimeError(label+": could not confirm 3 replicas healthy (inspect Docker crash state)")
 
 def reset_setup(sys,label):
     sd(sys,label+"_reset","reset",timeout=45)
@@ -146,7 +149,7 @@ try:
             stopped=[]
             try:
                 t0=time.monotonic()
-                run(name+"_stop_leader",["docker","stop","-t","2",first],timeout=12)
+                run(name+"_stop_leader",["docker","stop","-t","10",first],timeout=22)
                 stopped.append(first)
                 confirmed=False
                 for attempt in range(25):
@@ -157,7 +160,7 @@ try:
                 if not confirmed:raise RuntimeError(name+": no confirmed acks=all with 2 nodes")
                 measure(sys,"E5","failover",rep,(time.monotonic()-t0)*1000,name+"_stop_leader.log")
                 run(name+"_read_2_nodes",["docker","exec",clients[sys],"/app/sdtool","verify","--sys",sys,"--file","/tmp/fault.csv","--idle","1s"],timeout=22,allow_failure=True)
-                run(name+"_stop_second",["docker","stop","-t","2",second],timeout=12)
+                run(name+"_stop_second",["docker","stop","-t","10",second],timeout=22)
                 stopped.append(second)
                 quorum_write=probe(sys,name+"_one_node_acks_all",aggregate=aggregate)
                 (OUT/(name+"_quorum.txt")).write_text(f"one_node_acks_all_confirmed={quorum_write}\n",encoding="utf-8")
@@ -173,7 +176,23 @@ try:
                 source=OUT/(name+"_acked.csv")
                 source.write_text("id,ok,lat_ms,t_ms,pos\n"+"".join(aggregate),encoding="utf-8")
                 run(name+"_copy_acked",["docker","cp",str(source),clients[sys]+":/tmp/merged.csv"])
-                sd(sys,name+"_verify","verify","--file","/tmp/merged.csv","--idle","2s",timeout=55)
+                # JetStream may temporarily reject consumer API calls after replica catch-up.
+                # Retry only the explicitly transient 503 error and preserve each attempt.
+                for check in range(1,13):
+                    code, output = run(name+f"_verify_attempt{check}",
+                        ["docker","exec",clients[sys],"/app/sdtool","verify",
+                         "--file","/tmp/merged.csv","--idle","2s","--sys",sys],
+                        timeout=55,allow_failure=True)
+                    if code == 0:
+                        (OUT/(name+"_verify.log")).write_text(
+                            (OUT/(name+f"_verify_attempt{check}.log")).read_text(encoding="utf-8"),
+                            encoding="utf-8")
+                        break
+                    if sys != "nats" or "temporarily unavailable" not in output:
+                        raise RuntimeError(name+": verify failed with non-transient error")
+                    time.sleep(2)
+                else:
+                    raise RuntimeError(name+": JetStream verify remained unavailable after 12 observations")
             finally:
                 for n in stopped:
                     run(name+"_emergency_restart_"+n,["docker","start",n],timeout=30,allow_failure=True)

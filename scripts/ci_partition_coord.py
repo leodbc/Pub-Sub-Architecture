@@ -53,11 +53,11 @@ def meta_json(label):
         try:
             with urllib.request.urlopen(f"http://172.33.0.{ip}:8222/jsz",timeout=3) as res:
                 data=json.loads(res.read())
-            (OUT/(label+".json")).write_text(json.dumps(data,indent=2),encoding="utf-8")
-            if "meta_cluster" in data:return data
+            (OUT/(label+f"_node_{ip}.json")).write_text(json.dumps(data,indent=2),encoding="utf-8")
+            if data.get("meta_cluster",{}).get("leader"):return data
         except Exception as exc:
             (OUT/(label+"_error.log")).write_text(str(exc),encoding="utf-8")
-    raise RuntimeError("NATS /jsz meta_cluster unavailable; inspect monitoring/logs")
+    raise RuntimeError("NATS /jsz: all sampled nodes lack a confirmed meta_cluster.leader")
 
 def leader(sys,label):
     if sys=="kafka":
@@ -169,10 +169,16 @@ def coordinator(sys,label):
         b=re.search(r"LeaderEpoch:\s*(\d+)",out)
         if not a or not b:raise RuntimeError("KRaft quorum output lacks leader/epoch")
         return "kafka"+a.group(1),int(b.group(1))
-    data=meta_json(label)
-    leader_name=data.get("meta_cluster",{}).get("leader")
-    if not leader_name:raise RuntimeError("NATS meta_cluster.leader missing")
-    return leader_name,None
+    for retry in range(15):
+        try:
+            data=meta_json(label+f"_attempt_{retry}")
+            leader_name=data.get("meta_cluster",{}).get("leader")
+            if leader_name:
+                return leader_name,None
+        except RuntimeError:
+            pass
+        time.sleep(.8)
+    raise RuntimeError("NATS meta leader unavailable on all 3 nodes after 15 observations")
 
 def experiment_e8(sys,rep):
     name=f"e8_{sys}_r{rep}"

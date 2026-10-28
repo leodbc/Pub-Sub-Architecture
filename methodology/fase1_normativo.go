@@ -97,7 +97,7 @@ func groupResume(topic,group string){
 func epochs(topic string){
  c:=client();defer c.Close();a:=kadm.NewClient(c)
  ctx,stop:=context.WithTimeout(context.Background(),20*time.Second);defer stop()
- details,err:=a.DescribeTopics(ctx,topic);must(err)
+ details,err:=a.ListTopics(ctx,topic);must(err)
  rows:=[]map[string]int32{}
  for _,p:=range details[topic].Sorted(){
   if p.Err!=nil {panic(p.Err)}

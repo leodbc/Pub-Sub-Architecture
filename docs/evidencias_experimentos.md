@@ -96,11 +96,66 @@ Este resultado completa as 5 medições **das três grandezas observáveis** par
 
 ## E7 — sincronização de réplicas
 
-E7 histórico (5 ciclos cada): Kafka 3.549,9 ± 1.551,5 ms; NATS 2.494,5 ± 1.185,9 ms. Ver medicoes_falhas.csv e arquivos de catch-up/ISR no artifact histórico. São tempos da restauração de nós até o primeiro estado saudável detectado, incluindo sondagem; não são tempos de eleição, ACK nem consenso. **A retomada do grupo de consumidores a partir do offset confirmado permanece sem teste dedicado.**
+E7 histórico (5 ciclos cada): Kafka 3.549,9 ± 1.551,5 ms; NATS 2.494,5 ± 1.185,9 ms. Ver medicoes_falhas.csv e arquivos de catch-up/ISR no artifact histórico. São tempos da restauração de nós até o primeiro estado saudável detectado, incluindo sondagem; não são tempos de eleição, ACK nem consenso. **Complemento normativo concluído em #40775447916:** grupo `m2-e7-40775447916`, partição 0; primeiro consumidor confirmou sincronicamente o próximo offset 2 após processar offsets 0 e 1, encerrou sem `Close`/`LeaveGroup` e novo processo no MESMO grupo retomou em 2, lendo 2, 3, 4 e 5 sem reler 0 e 1. Evidências: `e7_seed.log`, `e7_first_interrupted.log`, `e7_offset_after_crash.log`, `e7_resumed.log`, `e7_assertions.json`. Esse teste de offset de grupo é independente dos tempos de catch-up do ISR.
 
 ## E8 — evidência de troca de líder; NATS sem termo observável
 
 KRaft: LeaderEpoch observado em 5 mudanças: 2→3, 3→4, 4→5, 5→6, 6→7. NATS: nats3→nats2; nats2→nats1; nats1→nats3; nats3→nats2; nats2→nats1. **A identidade do líder do metagrupo NATS foi observada, MAS seu termo/época Raft não foi exposto por /jsz nos dados coletados. Não inventar, estimar ou atribuir zero.** Os pares de líderes por rodada, epochs de KRaft e os caminhos dos arquivos e8_nats_r*_elected.txt estão em e8_metagrupo.md ([artifact #12848882349](https://github.com/leodbc/Pub-Sub-Architecture/actions/runs/40764006491/artifacts/12848882349)).
+
+## Fechamento normativo direcionado — E2, E5, E7 e E8 (28/10/2026)
+
+Execução de referência [GitHub Actions #40775447916](https://github.com/leodbc/Pub-Sub-Architecture/actions/runs/40775447916), commit `c4385ef19d0841004c6aa457b7bab61b43c56a58`, job normativo **aprovado**. Arquivo íntegro: [release M2 Fase 1](https://github.com/leodbc/Pub-Sub-Architecture/releases/tag/m2-fase1-evidencias-2026-10-28), asset `fase1-normative-run-40775447916.zip`, com hashes por membro em `manifest.json`. Códigos: `methodology/fase1_normativo.go` e `methodology/ci_normativo.py`.
+
+### E2 — chaves, partição e offset, leitura verificada
+
+**Previsão:** na configuração fixa de três partições, a mesma chave é roteada à mesma partição; o offset é ordenado apenas dentro da partição. **Procedimento:** produzir 3 registros para cada uma das 12 chaves `cliente1`–`cliente12` e consumir desde o início por um consumidor independente. **Observado:** 36 linhas PRODUCE + 36 CONSUME, três partições distintas, 12 chaves estáveis, offsets de produção e leitura idênticos; nenhuma chave migrou de partição. O teste falha se ocorrer divergência. Fonte: `e2_keys.log` do ZIP de fechamento.
+
+**Diagrama lógico autoral (mecanismos fundamentados no protocolo; somente os registros do produtor/consumidor e metadados foram instrumentados):**
+
+```mermaid
+sequenceDiagram
+    participant P as Produtor Kafka
+    participant B as Broker bootstrap / Metadata API
+    participant L as Broker líder da partição
+    participant F as Seguidores ISR
+    participant C as Consumidor
+    P->>B: MetadataRequest para descobrir partição/líder
+    B-->>P: MetadataResponse (estado mantido via KRaft)
+    P->>L: Produce(chave, registro)
+    F->>L: Replica FetchRequest
+    L-->>F: FetchResponse com registros
+    F->>L: Próximo FetchRequest / offset replicado
+    Note over L,F: High watermark conforme ISR
+    L-->>P: ACK segundo acks configurado
+    C->>L: Fetch(partição, offset)
+    L-->>C: Registro visível dentro do high watermark
+```
+
+Não afirmar que este desenho seja um trace das mensagens individuais nos canais internos. O comportamento de chave/partição/offset foi observado; o mecanismo entre líder, seguidores e high watermark é fundamentação técnica.
+
+### E5 — controle de metadados sem maioria
+
+**Previsão:** `CreateTopics` precisa de coordenação do metagrupo KRaft e não confirma com um controlador de três. **Procedimento:** parar kafka1/kafka2, manter kafka3, solicitar criação de tópico novo a `172.31.0.43:19092` e restaurar os nós. **Observado:** processo do cliente terminou por timeout externo de 32,028 s, sem resposta de sucesso enquanto apenas kafka3 estava ativo. Após o quórum retornar, o tópico `m2_e5_noquorum_40775447916` apareceu no `--list`. **Conclusão limitada:** instante da criação não foi instrumentado; a solicitação pode ter continuado pendente no cliente/broker e sido concluída após a recuperação. Não é prova de criação *durante* a ausência de quórum e não caracteriza perda de mensagens. Fontes: `e5_docker_state.log`, `e5_stop_kafka1.log`, `e5_stop_kafka2.log`, `e5_create_without_quorum.log`, `e5_topic_postrestore.log`, `e5_create_classification.json`, `e5_late_materialization.json`.
+
+A disponibilidade de dados de tópicos existentes é questão distinta da disponibilidade do plano de metadados KRaft. A matriz histórica E5 de leituras e escritas com 3/2/1 nós permanece válida nos limites explicitados; não se pode extrapolar o resultado de criação de tópico para todas as leituras nem tratar timeout como perda confirmada.
+
+### E7 — retomada de consumidor de grupo por offset efetivamente confirmado
+
+**Previsão:** após commit explícito do offset seguinte 2, o grupo inicia no registro de offset 2, inclusive com outro processo após a interrupção. **Observado:** topic `m2_e7_group` RF3/partição única, grupo `m2-e7-40775447916`, primeiro processo consumiu 0 e 1 e confirmou `CommitRecords` do registro 1; o CLI `kafka-consumer-groups --describe` mostrou CURRENT-OFFSET=2; segundo processo consumiu 2–5. **Não prova exatamente-uma-vez em qualquer falha**, apenas a retomada correta nessa sequência com commit confirmado. Fontes detalhadas no parágrafo E7 acima e no asset de release.
+
+### E8 — época de liderança da partição versus controlador
+
+**Previsão:** a troca do líder da partição aumenta seu `LeaderEpoch`, que permite detectar/fenciar versões antigas do líder; o termo/época do controlador KRaft é um contador de outro domínio e pode permanecer inalterado. **Observado em #40775447916:** líder da partição 0 mudou `2 → 3`, época da partição `0 → 1`; época do controlador KRaft `1 → 1`, sem troca de líder do quórum de metadados nesse evento. O caso histórico E8 já demonstrara eleições do controlador e avanço de sua época em cinco repetições. Fontes: `e8_partition_before.log`, `e8_partition_after_attempt0.log`, `e8_controller_before.log`, `e8_controller_after.log`, `e8_epoch_comparison.json`. A época/termo interno do meta-grupo NATS continua **NÃO OBSERVADA**, não inventada.
+
+### E3 — interpretação normativa conjunta
+
+A página 31 do roteiro Tema 4 instancia E3 em dois itens específicos: confirmar a presença da partição nos três nós e comparar **vazão e latência do produtor** com `acks=1` versus `acks=all`, com pelo menos cinco repetições. Essa é a operacionalização explícita de E3 para Kafka. As regras gerais (página 7) citam medições de propagação entre tipos possíveis, mas **não exigem artificialmente timestamp individual de cada follower** quando a instrumentação não fornece essa observação. Conservamos o limite: ACK, visibilidade ao consumidor e replicação interna são propriedades distintas, e resultados não medidos não são estimados.
+
+### Arquivo duradouro das evidências (antes de 27/11/2026)
+
+A [release `m2-fase1-evidencias-2026-10-28`](https://github.com/leodbc/Pub-Sub-Architecture/releases/tag/m2-fase1-evidencias-2026-10-28) foi publicada e validada no mesmo workflow #40775447916, com tag apontando para `c4385ef` e 10 ZIPs de evidência + `manifest.json`. O job verificou os SHA-256 originais contra valores ancorados no script, inspecionou nomes/extensões e padrões comuns de credenciais e baixou novamente o manifesto para checagem de igualdade. Isso evita a expiração automática dos artifacts do GitHub Actions em 27/11/2026; ainda exige preservação de acesso ao repositório e proteção contra exclusão manual da release. O manifesto registra SHA-256 de cada ZIP e de cada membro, workflow/run e commits; **não contém segredos ou arquivos de ambiente de execução**.
+
+**Nota de rastreabilidade:** o run #40773959336, que terminou reprovado por classificar incorretamente a materialização tardia como falha, também foi preservado na release, sem ocultar sua ocorrência. O run #40775447916 validou a interpretação, sem reescrever os logs do run anterior. Todas as medições anteriores de E1–E9 permanecem nos ZIPs originais e nas referências acima.
 
 ## E9 — Ênfase D
 
@@ -126,12 +181,12 @@ Os CSVs individuais, as saídas de sdtool verify e os logs não foram alterados.
 | Requisito | Estado | Base observacional e pendência |
 |---|---|---|
 | R1 — ≥3 nós Docker, ambiente reprodutível | **Atendido no CI** | compose Kafka/NATS, status, brokers/controllers/stream RF3 e limites de memória |
-| R2 — fundamentação e diagrama próprio | **Parcial** | fundamentos e arquivos técnicos; diagrama próprio e citação formal em relatório ainda não entregues |
-| R3 — E1–E8, previsão/procedimento/evidência/análise | **Parcial** | bateria original executada; trace completo E2, propagação direta follower E3 e retomada offset E7 não demonstrados |
+| R2 — fundamentação e diagrama próprio | **Parcial** | diagrama lógico autoral de E2 incluído neste documento, mecanismo distinguido de trace; artigo seminal e bibliografia ABNT formal continuam na etapa de relatório |
+| R3 — E1–E8, previsão/procedimento/evidência/análise | **Parcial, evidências práticas completas nos complementos solicitados** | E2 chave/offset e E7 consumer group agora instrumentados; tracing interno por salto E2 continua descrito conceitualmente, não observado integralmente |
 | R4 — E9 Ênfase D | **Atendido com ressalvas** | comparativo original Kafka/NATS aprovado, com limites explicitados e complementos E3/E6 |
 | R5 — Q1–Q14 | **Pendente** | respostas fundamentadas farão parte do relatório final, não iniciado |
 | R6 — S1–S4 | **Pendente** | respostas específicas no relatório final, não iniciado |
-| R7 — cinco medições, média e DP | **Parcial** | cinco ciclos observados nas grandezas instrumentadas; propagação interna por réplica não medida |
+| R7 — cinco medições, média e DP | **Atendido para métricas instanciadas no Tema 4, com ressalva instrumental** | E3: cinco ACK/vazão para acks=1/all e NATS, cinco callbacks de leitura; E5/E6/E7/E8: cinco medições temporais aplicáveis; não confundir esses tempos com timestamps individuais de followers |
 | R8 — relatório 15–25 páginas | **Pendente** | explicitamente fora do escopo desta etapa |
 | R9 — seminário 10min e demonstração | **Pendente** | depende da equipe, fora da presente implementação |
 | R10 — domínio/arguição da dupla | **Pendente** | somente avaliação presencial da equipe pode demonstrar |

@@ -38,7 +38,7 @@ Atalho: `alias sdn='docker exec cliente-nats /app/sdtool'`
 | **E5** falha/quórum | Terminal A: `sdk probe --sys kafka --count 600 --interval 100ms`. Terminal B: descobrir líder (`--describe`), `docker stop kafkaX`; esperar; parar o 2º nó; depois `docker start`. Anote cada janela "RECUPEROU". Depois `verify`. | Terminal A: `sdn probe --sys nats --count 600`. Terminal B: líder via `nats stream info PROBE`; `docker stop natsX`; parar o 2º nó. |
 | **E6** partição | `docker network ls` (ver `<pasta>_interna`); `docker network disconnect <proj>_interna kafkaX` (líder); observar o probe; reconectar com `docker network connect --ip 172.30.0.4X <proj>_interna kafkaX` | `docker network disconnect <proj>_interna natsX` (líder do stream) |
 | **E7** recuperação | reconectar/`docker start`; `--describe` até o Isr voltar; meça o tempo (5x) | `nats stream info PROBE` até a réplica voltar sem "Lag"; meça (5x) |
-| **E8** coordenação | `kafka-metadata-quorum.sh ... describe --status` (LeaderId, LeaderEpoch); pare o controlador ativo e repita; `--describe` mostra o LeaderEpoch da partição | `nats stream cluster step-down PROBE`; líder do meta-grupo: `wget -qO- http://172.33.0.51:8222/jsz` (campo `meta_cluster`); pare o líder do meta-grupo |
+| **E8** coordenação | `kafka-metadata-quorum.sh ... describe --status` (LeaderId, LeaderEpoch); pare o controlador ativo e repita; `--describe` mostra líder/ISR, NÃO a época; use a API Metadata via `fase1_normativo --mode epochs` para observar a época da partição | `nats stream cluster step-down PROBE`; líder do meta-grupo: `wget -qO- http://172.33.0.51:8222/jsz` (campo `meta_cluster`); pare o líder do meta-grupo |
 
 Janelas de indisponibilidade: repita 5x e calcule média e desvio (exigência R7).
 
@@ -84,12 +84,13 @@ a conclusão de seu experimento. Os resultados confirmados aparecem também na
 conversa do Pull Request.
 
 **Limites de validade acadêmica:** E2 requer o diagrama de sequência próprio e a
-demonstração do caminho interno da operação. O E4 original testa uma única
-partição/chave: são necessários testes adicionais para contrastar ordem entre
-partições no Kafka. A partição de rede E6, isolando apenas o canal interno, ainda
-permite redirecionamento por metadata do Kafka na rede dos clientes; apontar um
-bootstrap para a minoria não equivale a bloquear todo o tráfego do cliente com a
-maioria. Essas limitações devem constar no relatório, junto à análise CAP/PACELC.
+demonstração do caminho interno da operação. O E4 também foi ampliado para 90 mensagens distribuídas por três partições:
+zero inversões por partição, com inversões na leitura global; ver
+`e4_kafka_multi_verify.log`. O isolamento rigoroso de E6 posterior criou
+um cliente minoritário em bridge Docker `--internal`, distinta do cliente
+majoritário, corrigindo a limitação do experimento histórico. A partição de rede E6 *histórica* isolava apenas o canal interno, podendo
+permitir redirecionamento pela metadata do Kafka; a extensão rigorosa posterior
+separou os clientes em redes distintas. A limitação histórica permanece registrada. Essas limitações devem constar no relatório, junto à análise CAP/PACELC.
 O CI não substitui o relatório de 15–25 páginas, o seminário e as respostas Q1–Q14/S1–S4.
 
 Em um terminal local para reproduzir apenas a compilação travada em checksum:
@@ -102,3 +103,19 @@ CGO_ENABLED=0 GOOS=linux go build -mod=readonly -o bin/sdtool .
 
 A aplicação usa endereços e portas internos de laboratório sem autenticação;
 não conecte esses clusters a redes públicas ou de produção.
+
+## 8. Provas normativas finais e preservação (Fase 1)
+
+O PDF oficial do Trabalho M2, Tema 4 (páginas 31–33), exige evidências complementares.
+O workflow [m2-fase1-final.yml](.github/workflows/m2-fase1-final.yml) executa SOMENTE os testes novos em runner Ubuntu com Docker:
+
+- **E2:** 12 chaves × 3 mensagens = 36 registros. As linhas PRODUCE e CONSUME mostram chave, partição e offset; o teste falha se houver divergência ou troca de partição para a mesma chave.
+- **E5:** após derrubar dois controladores KRaft, tenta CreateTopics no único sobrevivente. Classifica timeout como ausência de resposta do cliente e verifica se o tópico aparece depois do restabelecimento; ambos os resultados são preservados. Não pressupõe que o tópico tenha sido criado durante a partição.
+- **E7:** consumidor de grupo com autocommit desligado confirma offset de retomada 2, é interrompido sem LeaveGroup e um segundo processo do MESMO grupo recupera os registros offsets 2–5. O teste não é sinônimo de catch-up do ISR.
+- **E8:** compara época de liderança da PARTIÇÃO, obtida por kadm.ListTopics (Metadata API), com época do CONTROLADOR, obtida por kafka-metadata-quorum describe --status. São contadores independentes.
+
+**E3:** segundo a p. 31, o experimento específico exige réplica em três nós e comparação de vazão/latência acks=1 contra acks=all com cinco repetições. A instrumentação complementar diferencia ACK e visibilidade do callback; não inventa o instante da propagação até cada follower.
+
+**Retenção:** artifacts GitHub Actions expiram após 30 dias (27/11/2026 para as execuções originais), antes da entrega 28/11. Um job condicionado à aprovação dos novos testes baixa ZIPs originais especificados, valida SHA-256 ANCORADOS no script, examina padrões de credenciais e publica uma release com ZIPs e manifesto por arquivo. O tag é `m2-fase1-evidencias-2026-10-28`. O pacote da [release publicada](https://github.com/leodbc/Pub-Sub-Architecture/releases/tag/m2-fase1-evidencias-2026-10-28) foi verificado no run #40775447916; não sobrescrever assets nem apagar evidências prévias.
+
+A documentação canônica com observações, limites científicos e matriz R1–R10 está em [docs/evidencias_experimentos.md](docs/evidencias_experimentos.md). O relatório final e seminário permanecem tarefas futuras.

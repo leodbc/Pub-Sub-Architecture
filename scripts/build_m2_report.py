@@ -100,6 +100,13 @@ def build_docx(raw, path, commit):
  # nunca separar figura (desenho) da legenda subsequente.
  for paragraph in d.paragraphs:
   label=paragraph.text.strip()
+  # Anexos iniciam em páginas próprias, sem deslocar o quadro-síntese.
+  if label.startswith(('Anexo A —', 'Anexo B —')) and paragraph.style.name=='Heading 1':
+   paragraph.paragraph_format.page_break_before=True
+  # As tabelas longas E5/E6 cabem separadamente em uma página; iniciar uma
+  # nova página evita quebra entre o título e as últimas linhas (LibreOffice).
+  if re.match(r'^Tabela [45]\s*[—-]', label):
+   paragraph.paragraph_format.page_break_before=True
   if re.match(r'^Tabela\s+\d+\s+[—-]',label):
    paragraph.paragraph_format.keep_with_next=True
    paragraph.paragraph_format.keep_together=True

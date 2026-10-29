@@ -16,7 +16,7 @@ python -m pip install -r scripts/requirements-relatorio.txt
 python scripts/build_m2_report.py --source docs/relatorio_m2.md --outdir dist --source-commit "$(git rev-parse HEAD)"
 ```
 
-O script falha se as âncoras do sumário mudarem inesperadamente, se faltarem figuras/tabelas/questões/referências, se restar `Table of Contents`, se a paginação esperada for alterada ou se houver blocos textuais fora do papel A4. **Não ajusta o conteúdo científico nem dispara experimentos**.
+O script falha se as âncoras do sumário mudarem inesperadamente, se faltarem figuras/tabelas/questões/referências, se restar `Table of Contents`, se a paginação/estrutura se tornar inconsistente ou se houver blocos textuais fora do papel A4. **Não ajusta o conteúdo científico nem dispara experimentos**.
 
 ## Reproduzível versus externo
 
@@ -38,4 +38,4 @@ A matriz E5 agora inclui “não instrumentada” para células sem evidência; 
 
 O programa de renderização mantém título e primeira linha de cada tabela juntos, impede que linhas sejam partidas e mantém figura e legenda juntas. A checagem dos objetos de imagem usa os **blocos de imagem efetivamente exibidos** por página (não apenas recursos PDF compartilhados), e os números do sumário são calculados na renderização LibreOffice. O DOCX continua dependente do motor/fontes do editor; diferenças no Word são possíveis.
 
-Paginação verificada na revisão de Fase 4: **20 páginas A4, 18 antes dos anexos; Anexo A na página 19 e Anexo B na página 20**. A convenção de fonte no comando deve apontar para o commit final da revisão que contém o Markdown e o script. O PDF/DOCX resultante e seu manifesto são derivados, não provas científicas adicionais.
+Paginação verificada nesta revisão de Fase 4: **22 páginas A4, 20 antes dos anexos; Anexo A na página 21 e Anexo B na página 22**. A paginação no Microsoft Word pode diferir. A convenção de fonte no comando deve apontar para o commit final da revisão que contém o Markdown e o script. O PDF/DOCX resultante e seu manifesto são derivados, não provas científicas adicionais.

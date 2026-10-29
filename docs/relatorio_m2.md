@@ -460,9 +460,10 @@ As 21 referências [R1]–[R21] reproduzem as identificações verificadas na Fa
 
 **A.4** E6: `e6_clocks.csv`, `e6_operations.csv`, `summary.md` e arquivos de topologia de rede (Kafka artifact #12850545819; NATS artifact #12851670501). A última execução NATS de isolamento rigoroso completa cinco ciclos, mas não apresenta termo Raft interno.
 
+**A.5** E8/E9: `medicoes_e6_e8.csv`, `e8_metagrupo.md`, `e8_nats_r*_elected.txt`, `e8_partition_before.log`, `e8_partition_after_attempt0.log`, `e8_controller_before.log`, `e8_controller_after.log`, `e8_epoch_comparison.json`, `scripts/ci_compare_e9.py`.
+
 **A.6 — Complemento normativo da Fase 4.** Código isolado `audit/m2_fase4/`, tópico `pedidos` em três partições e RF3 e sequências E4 de 1–30 sem chave e 1–30 com chave única. Execução e arquivos: **workflow #40795085275, execução bem-sucedida, artifact GitHub #12863137924** (digest SHA-256 informado pelo GitHub `5f4292fb945b28c4713da354d59e89a9d62f22258c1ebd197a4e1358eeac1c67`); cópias textuais dos logs e validadores em `audit/m2_fase4/evidence/run-40795085275/`. `e1_describe_pedidos.log`, `e1_metadata_quorum.log`, `e4_30_sem_chave_e_mesma_chave.log`, `e1_validacao.json`, `e4_validacao.json` e `sha256_arquivos.txt`. Esses logs são independentes dos resultados E1/E4 historicamente preservados. O comando `--num-records 50000 --record-size 200` de E3 não foi executado nesta Fase 4.
 
-**A.5** E8/E9: `medicoes_e6_e8.csv`, `e8_metagrupo.md`, `e8_nats_r*_elected.txt`, `e8_partition_before.log`, `e8_partition_after_attempt0.log`, `e8_controller_before.log`, `e8_controller_after.log`, `e8_epoch_comparison.json`, `scripts/ci_compare_e9.py`.
 
 # Anexo B — Matriz de conformidade da elaboração (fora da extensão do corpo)
 
@@ -480,4 +481,4 @@ As 21 referências [R1]–[R21] reproduzem as identificações verificadas na Fa
 | 10 Contribuições individuais | Parcial | Todos os nomes e papéis humanos pendentes |
 | 11 Declaração IA | Parcial | Declaração transparente; aprovação humana pendente |
 | 12 Referências | Atendido na redação | 21 entradas; revisão normativa humana final pendente |
-| Extensão e renderização | Atendido tecnicamente, sob reauditoria | PDF A4 com **20 páginas totais**; **18 páginas antes dos anexos**, que começam na **página 19** (Anexo B na página 20). PDF/DOCX gerados da mesma revisão; ver manifesto com hash. Conferidos sumário, tabelas, figuras, caracteres e ausência de blocos fora da página. A paginação do Word pode variar; revisão humana ainda pendente. |
+| Extensão e renderização | Atendido tecnicamente, sob reauditoria | PDF A4 com **22 páginas totais**; **20 páginas antes dos anexos**, que começam na **página 21** (Anexo B na página 22). PDF/DOCX gerados da mesma revisão; ver manifesto com hash. Conferidos sumário, tabelas, figuras, caracteres e ausência de blocos fora da página. A paginação do Word pode variar; revisão humana ainda pendente. |

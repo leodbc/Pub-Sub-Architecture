@@ -1,0 +1,29 @@
+{
+  "topic": "pedidos",
+  "partitions": [
+    {
+      "Topic": "pedidos",
+      "Partition": "0",
+      "Leader": "2",
+      "Replicas": "2,3,1",
+      "Isr": "2,3,1"
+    },
+    {
+      "Topic": "pedidos",
+      "Partition": "1",
+      "Leader": "3",
+      "Replicas": "3,1,2",
+      "Isr": "3,1,2"
+    },
+    {
+      "Topic": "pedidos",
+      "Partition": "2",
+      "Leader": "1",
+      "Replicas": "1,2,3",
+      "Isr": "1,2,3"
+    }
+  ],
+  "rf": 3,
+  "all_in_sync": true,
+  "source": "artifacts/m2-fase4-complemento/e1_describe_pedidos.log"
+}

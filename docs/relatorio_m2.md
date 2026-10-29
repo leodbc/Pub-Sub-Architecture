@@ -23,7 +23,7 @@ lang: pt-BR
 
 **Equipe e integrantes:** **[PREENCHER: nome completo, matrícula, turma, integrantes e equipe]**. **Local e data de entrega:** **[PREENCHER]**. Estes campos não podem ser inferidos de commits, conta GitHub ou uso de ferramentas.
 
-**Repositório:** https://github.com/leodbc/Pub-Sub-Architecture. **Evidências:** `docs/evidencias_experimentos.md`, commit `faae727`; release `m2-fase1-evidencias-2026-10-28`. **Fundamentação:** `docs/fundamentacao_e_questoes.md`, commit `87e9990`. O histórico de PRs e os arquivos originais são preservados.
+**Repositório:** https://github.com/leodbc/Pub-Sub-Architecture. **Evidências históricas:** `docs/evidencias_experimentos.md`, commit `faae727`; release `m2-fase1-evidencias-2026-10-28`. **Fundamentação:** `docs/fundamentacao_e_questoes.md`, commit `87e9990`. O histórico de PRs e os arquivos originais são preservados.
 
 # 2. Resumo
 
@@ -45,7 +45,7 @@ Os três nós Kafka do laboratório exercem simultaneamente os papéis `broker,c
 
 JetStream usa grupos Raft por stream e por consumidor, além de grupo de metadados; grupo RF3 requer maioria 2/3 para avançar confirmações consistentes conforme configuração. Um PubAck é semântica de publicação do serviço, não equivalência automática a qualquer nível de ACK do Kafka [R13–R15].
 
-![Figura 1 — Nós, redes e papéis configurados (sem atribuir líder fixo)](figuras_m2/01_topologia.svg)
+![](figuras_m2/01_topologia.svg)
 
 *Figura 1 — Nós, redes e papéis configurados (sem atribuir líder fixo). Fonte: elaboração própria com base em arquivos Compose; EV-E1.*
 
@@ -53,7 +53,7 @@ JetStream usa grupos Raft por stream e por consumidor, além de grupo de metadad
 
 A chave e o particionador determinam o destino Kafka em condições fixas; o produtor descobre o líder pelos metadados, faz `Produce`, os seguidores replicam pelo protocolo de fetch e a resposta depende de `acks`. Em `acks=1`, o líder pode responder antes da confirmação pelas demais réplicas; em `acks=all`, a resposta exige o conjunto ISR atual e o mínimo configurado. Em geral, o consumidor só enxerga registros até a fronteira de confirmação HW; leitura transacional `read_committed` considera também LSO [R3–R6]. Com RF3 e ISR=3, `min.insync.replicas=2` é *piso* da cardinalidade, e não autorização para ignorar a terceira réplica ainda integrante do ISR.
 
-![Figura 2 — Fluxo lógico de publicação/replicação/leitura; não é trace instrumentado](figuras_m2/02_operacao_kafka.svg)
+![](figuras_m2/02_operacao_kafka.svg)
 
 *Figura 2 — Fluxo lógico de publicação/replicação/leitura; não é trace instrumentado. Fonte: elaboração própria com base em [R3–R6], EV-E2.*
 
@@ -61,7 +61,7 @@ A chave e o particionador determinam o destino Kafka em condições fixas; o pro
 
 Um **log de dados Kafka** é uma sequência líder–seguidor por partição e usa ISR/HW para fronteiras de visibilidade e durabilidade condicionada. Um **log de metadados KRaft** é um estado replicado com eleição e commit por maioria entre controladores. Um **stream JetStream RF3** possui grupo Raft próprio. A palavra “consenso” não transforma os três em protocolos equivalentes. O `min.insync.replicas` limita confirmações `acks=all`, mas não é uma votação Raft de cada mensagem Kafka. Como E8 demonstra, a época de líder de partição e a época do controlador são variáveis diferentes; ELR (KIP-966 [R9–R10]) introduz regra adicional de elegibilidade em versões atuais, mas seu acionamento específico não foi isolado neste laboratório.
 
-![Figura 3 — Separação entre ISR/HW, KRaft e Raft dos streams JetStream](figuras_m2/03_mecanismos.svg)
+![](figuras_m2/03_mecanismos.svg)
 
 *Figura 3 — Separação entre ISR/HW, KRaft e Raft dos streams JetStream. Fonte: elaboração própria com base em [R3, R7–R10, R14–R15].*
 
@@ -108,7 +108,9 @@ O laboratório registra cinco ciclos onde o roteiro pede medidas temporais e uti
 
 ## 5.1 E1 — Subida, topologia e papéis
 
-**Objetivo e previsão:** levantar três brokers/controladores KRaft e três nós JetStream RF3; identificar líderes e réplicas. **Procedimento:** `docker compose up`, `sdtool setup` e consultas de tópico/quórum/stream. **[O]** `e1_kafka_topic.log`: líder 1, replicas/ISR 1,2,3, RF3; `e1_kafka_quorum.log`: controladores votantes 1,2,3, líder 2, época 1; `e1_nats_stream.log`: stream PROBE RF3, líder nats3 e duas réplicas atuais. **Análise:** a previsão foi corroborada como *snapshot*, não como mapeamento fixo de liderança durante toda a execução. Evidências EV-E1 e Figura 1.
+**Objetivo e previsão:** levantar três brokers/controladores KRaft e três nós JetStream RF3; identificar líderes e réplicas. **Procedimento histórico:** `docker compose up`, `sdtool setup` e consultas de tópico/quórum/stream. **[O, histórico]** `e1_kafka_topic.log`: tópico **`probe`, com uma partição**, líder 1, replicas/ISR 1,2,3, RF3; `e1_kafka_quorum.log`: controladores votantes 1,2,3, líder 2, época 1; `e1_nats_stream.log`: stream PROBE RF3, líder nats3 e duas réplicas atuais. **[L]** Essa coleta original comprova o ambiente e RF3, mas **não** satisfaz, por si, a configuração de tópico `pedidos` com três partições exigida pelo Tema 4 na página 31. Não confundir as duas topologias. Evidências EV-E1 e Figura 1.
+
+**Complemento normativo independente (Fase 4):** o ensaio adicional cria **`pedidos`, 3 partições, RF3**, documenta para cada partição `Leader`, `Replicas` e `Isr` com `kafka-topics.sh --describe`, e obtém separadamente `LeaderId`, `LeaderEpoch` e `CurrentVoters` com `kafka-metadata-quorum.sh describe --status`. Os resultados observados e os arquivos estão registrados em **workflow #40795085275, artifact #12863137924, logs `e1_describe_pedidos.log` e `e1_metadata_quorum.log`**: partição 0 → líder 2, réplicas/ISR 2,3,1; partição 1 → líder 3, réplicas/ISR 3,1,2; partição 2 → líder 1, réplicas/ISR 1,2,3. O quórum de metadados exibiu `LeaderId=3`, `LeaderEpoch=1` e votantes 1,2,3. Cada partição apresentou RF3 e ISR completo nesse snapshot [O].. A Figura 1 descreve a infraestrutura, não identifica os líderes de cada partição do novo tópico; estes devem ser lidos no log normativo. O complemento não modifica o registro original de `probe`.
 
 ## 5.2 E2 — Caminho da publicação/leitura
 
@@ -117,6 +119,8 @@ O laboratório registra cinco ciclos onde o roteiro pede medidas temporais e uti
 ## 5.3 E3 — Replicação, ACK, vazão e visibilidade
 
 **Objetivo e previsão:** RF3 replicado nos três nós; `acks=1` tende a reduzir custo de confirmação frente a `acks=all`, sem equivalência de durabilidade; JetStream RF3 tem protocolo distinto. **Procedimento:** benchmark de 200 mensagens/rodada, cinco rodadas por configuração, com log do `sdtool bench`; teste complementar separado de envio a callback do consumidor também em n=5. **[O]** E1 confirmou RF3 e ISR; o benchmark apresentou os valores da Tabela 2, sem erro contado nos ensaios. **[L]** ACK e callback **não** medem instante de escrita individual em cada follower. As tabelas do benchmark e do teste complementar não podem ser agregadas numa única média porque workloads e instrumentos diferem.
+
+**Relação entre as instruções do roteiro (E3).** A tabela geral de E3, na **página 9**, solicita demonstração de replicação, leitura por outro nó e medição da propagação com média e desvio. A operacionalização específica para Kafka nas **páginas 31–32** explicita a presença de réplicas nos três nós, a comparação de **latência e vazão do produtor com `acks=1` versus `acks=all`** em cinco repetições e apresenta o comando `kafka-producer-perf-test.sh --num-records 50000 --record-size 200` como configuração concreta. Os resultados históricos desta pesquisa usaram **200 mensagens por repetição**, não 50.000 mensagens de 200 bytes no perf-test; portanto **não constituem execução literal do comando impresso**, e comparar suas médias diretamente com os valores ilustrativos do roteiro seria incorreto. As cinco repetições de latência/vazão Kafka atendem ao desenho estatístico mensurado, mas a aderência integral ao volume de carga do comando e ao item geral de propagação por seguidor exige **confirmação interpretativa do professor**. Nenhum timestamp individual de aplicação em follower foi obtido; ACK e callback não o substituem. **Não declarar aprovação normativa antecipada de E3.**
 
 **Tabela 2 — Cinco repetições, média e desvio padrão amostral: latência ACK e vazão de E3.**
 
@@ -143,7 +147,7 @@ O laboratório registra cinco ciclos onde o roteiro pede medidas temporais e uti
 
 *Fonte: `resumo_estatistico.md`, `e3_kafka_acks_1.log`, `e3_kafka_acks_all.log`, `e3_nats_rf3.log` no artifact histórico E1–E4 de EV-E3. Latência em ms; vazão em mensagens/s; n=5 por modo.*
 
-![Figura 4 — ACK e vazão do produtor nas três configurações (não equivalência de garantia)](figuras_m2/04_e3_estatisticas.svg)
+![](figuras_m2/04_e3_estatisticas.svg)
 
 *Figura 4 — ACK e vazão do produtor nas três configurações (não equivalência de garantia). Fonte: elaboração própria com base em Tabela 2; EV-E3.*
 
@@ -171,30 +175,26 @@ O laboratório registra cinco ciclos onde o roteiro pede medidas temporais e uti
 
 ## 5.4 E4 — Ordenação e limite de consistência
 
-**Objetivo e previsão:** preservar ordem de offset **dentro** de cada partição, não garantir sequência global entre partições. **Procedimento:** produzir em três partições (90 chaves) e verificar inversões por partição e na concatenação total. **[O]** `e4_kafka_multi_verify.log` apontou **zero inversões por partição e 71 inversões na leitura global concatenada**. **Análise:** a ordem local foi observada; não houve história temporal concorrente suficiente para demonstrar linearizabilidade, causalidade global, transações exactly-once ou consistência formal entre partições. Fonte EV-E4.
+**Objetivo e previsão:** preservar ordem de offset **dentro** de cada partição, sem garantia de sequência global entre partições. **Histórico [O]:** `e4_kafka_multi_verify.log` realizou **90 mensagens com chaves distintas**, encontrando **zero inversões por partição e 71 inversões na leitura global concatenada**. É um **complemento distinto** dos dois casos literais de 30 mensagens do Tema 4, página 32; não deve ser apresentado como substituto deles.
+
+**Complemento normativo (Fase 4):** produções separadas no tópico `pedidos` de mensagens **1–30 sem chave** e, posteriormente, **1–30 com a mesma chave**. O cliente registra, por mensagem, cenário, número, chave, partição e offset tanto na publicação quanto na leitura por consumidor independente. **[O, workflow #40795085275]** No cenário sem chave, **30/30 registros foram produzidos e lidos** na partição **0**, offsets **0–29**, sem inversões; no cenário da mesma chave, **30/30** na partição **2**, offsets **0–29**, igualmente sem inversões. Os dois cenários são produções sequenciais distintas; o caso sem chave **não dispersou registros entre partições nessa execução**, logo tampouco demonstra intercalação global. Evidências verificáveis: `e4_30_sem_chave_e_mesma_chave.log`, `e4_validacao.json` e código `audit/m2_fase4/e4_30.go`. As 120 linhas de produção/leitura (60+60) contêm chave, partição e offset individuais.. O caso sem chave permite observar a distribuição real do particionador na configuração usada, mas não implica promessa de dispersão nem de ordem global. O caso de chave idêntica verifica estabilidade da partição e ordem local nos registros recebidos. **[L]** Nem esse complemento nem o histórico demonstram linearizabilidade em falhas arbitrárias ou exactly-once ponta a ponta.
 
 ## 5.5 E5 — Falha de líder e perda de quórum
 
 **Objetivo e previsão:** testar 3, 2 e 1 nó ativo e verificar leituras/escritas; na topologia com RF3, confirmação `acks=all`/PubAck de maioria deve falhar em condições típicas com só 1 nó. **Procedimento:** identificar e parar líder, parar segundo nó, classificar resposta da API, restaurar e repetir cinco vezes. **[O]** Tabela 4 mostra *todas as categorias por rodada*: com 1 nó, Kafka `acks=1` confirmou apenas **2/5** tentativas, não 5/5; `acks=all` e NATS PubAck não confirmaram nas cinco. Leituras com resultados `dados`/`vazio` não identificam necessariamente os mesmos registros previamente confirmados. Timeout é ausência de confirmação, não exclusão comprovada do registro.
 
-**Tabela 4 — Matriz de disponibilidade observada por rodada E5 (não é prova formal de SLA).**
+**Tabela 4 — Matriz normativa consolidada E5: leituras, escritas e metadados segundo nós ativos (cinco observações por linha, quando instrumentadas).**
 
-| Sistema / condição | Escrita ou leitura | Rodadas r1–r5 |
-| --- | --- | --- |
-| Kafka: 3 nós, acks=all | Escrita | OK, OK, OK, OK, OK |
-| Kafka: 2 nós, acks=all | Escrita | OK, OK, OK, OK, OK |
-| Kafka: 2 nós | Leitura API | vazio, dados, dados, vazio, dados |
-| Kafka: 1 nó, acks=all | Escrita | timeout × 5 |
-| Kafka: 1 nó, acks=1 | Escrita | timeout, timeout, OK, timeout, OK |
-| Kafka: 1 nó | Leitura API | dados, vazio, dados, vazio, dados |
-| NATS: 3 nós | PubAck | OK × 5 |
-| NATS: 2 nós | PubAck | OK × 5 |
-| NATS: 2 nós | Leitura API | dados × 5 |
-| NATS: 1 nó | PubAck | timeout × 5 |
-| NATS: 1 nó | Leitura API | erro, erro, timeout, timeout, erro |
+| Sistema | Nós | Leitura API | Kafka `acks=all` | Kafka `acks=1` | JetStream PubAck | Operação de metadados |
+|---|---:|---|---|---|---|---|
+| Kafka | 3 | Não instrumentada em E5 | confirmado 5/5 | Não instrumentada | Não se aplica | Não instrumentada |
+| Kafka | 2 | vazio, dados, dados, vazio, dados | confirmado 5/5 | Não instrumentada | Não se aplica | Não instrumentada |
+| Kafka | 1 | dados, vazio, dados, vazio, dados | timeout 5/5 | timeout 3/5; confirmado 2/5 | Não se aplica | `CreateTopics`: timeout 32,028 s sem sucesso; tópico visível após restauração; instante de criação não instrumentado |
+| NATS | 3 | Não instrumentada em E5 | Não se aplica | Não se aplica | confirmado 5/5 | Não instrumentada |
+| NATS | 2 | dados 5/5 | Não se aplica | Não se aplica | confirmado 5/5 | Não instrumentada |
+| NATS | 1 | erro API 3/5; timeout 2/5 | Não se aplica | Não se aplica | timeout 5/5 | Não instrumentada |
 
-*Fonte: `e5_5x_matrix.csv`, `e5_matriz.md`, artifact #12848882349 (EV-E5). `OK` indica ACK da operação observada; respostas de leitura vazia/dados são API, não garantia de identidade de registro.*
-
+*Fonte: `e5_5x_matrix.csv`, `e5_matriz.md` (artifact #12848882349), `e5_create_without_quorum.log`, `e5_topic_postrestore.log`, `e5_create_classification.json` e `e5_late_materialization.json` (release da Fase 1, EV-E5). “Não instrumentada” não significa falha nem sucesso. Os ensaios de metadados foram normativos adicionais, não cinco medições da mesma operação. Leituras “dados”/“vazio” não identificam necessariamente um registro previamente confirmado. Timeout não é prova de perda.*
 
 **Complemento normativo de metadados:** ao manter um controlador ativo e tentar `CreateTopics`, o cliente finalizou por timeout externo de **32,028 s**, sem confirmação no intervalo; o tópico apareceu **após restabelecimento do quórum**. **O instante de criação não foi instrumentado**. A materialização tardia não demonstra criação *durante* ausência de maioria. Fontes: `e5_create_without_quorum.log`, `e5_topic_postrestore.log`, `e5_create_classification.json`, `e5_late_materialization.json` (EV-E5).
 
@@ -202,7 +202,7 @@ O laboratório registra cinco ciclos onde o roteiro pede medidas temporais e uti
 
 **Objetivo e previsão:** isolar o líder de replicação e prover um cliente minoritário sem rota à maioria; confirmar escrita na maioria, recusar confirmação na minoria dentro da janela. **Procedimento:** bridge Docker `--internal` exclusiva para cliente da minoria e nó isolado; conferir rotas/interfaces e testar os dois lados, após isso reconectar e verificar saúde do cluster. **[O]** Kafka n=5: maioria escreveu e leu registro anterior nas cinco rodadas; minoria 0/5 ACKs `acks=all`; NATS: confirmação eventual na maioria e 0/5 PubAck e leituras confirmadas na minoria no intervalo. **[L]** leituras não confirmadas **não** provam perda definitiva. Três relógios diferentes devem ser mantidos separados: duração de partição (disconnect→início do reconnect), tempo até primeira confirmação majoritária (disconnect→ACK, incluindo retries) e tempo de recuperação após reconexão (connect→primeiro polling saudável). Todos incluem overhead experimental, não consenso interno.
 
-![Figura 5 — Rede majoritária e minoria fisicamente isolada para cliente (cenário E6)](figuras_m2/05_particao.svg)
+![](figuras_m2/05_particao.svg)
 
 *Figura 5 — Rede majoritária e minoria fisicamente isolada para cliente (cenário E6). Fonte: elaboração própria com base em EV-E6, network_proof.log e minority_interfaces.log.*
 
@@ -255,7 +255,7 @@ O laboratório registra cinco ciclos onde o roteiro pede medidas temporais e uti
 
 *Fonte: `medicoes_falhas.csv` (E5, E7), `medicoes_e6_e8.csv` (E8), ZIPs históricos E5–E7 e E6–E8; linhas originadas nos logs identificados em cada CSV (EV-E5, EV-E7, EV-E8). `E5` designa a primeira escrita confirmada após falha de líder, não duração de eleição; `E7` primeiro estado saudável detectado.*
 
-![Figura 6 — Eventos operacionais E5–E8; sem igualar épocas ou relógios](figuras_m2/06_recuperacao.svg)
+![](figuras_m2/06_recuperacao.svg)
 
 *Figura 6 — Eventos operacionais E5–E8; sem igualar épocas ou relógios. Fonte: elaboração própria com base em EV-E5–EV-E8.*
 
@@ -462,6 +462,9 @@ As 21 referências [R1]–[R21] reproduzem as identificações verificadas na Fa
 
 **A.5** E8/E9: `medicoes_e6_e8.csv`, `e8_metagrupo.md`, `e8_nats_r*_elected.txt`, `e8_partition_before.log`, `e8_partition_after_attempt0.log`, `e8_controller_before.log`, `e8_controller_after.log`, `e8_epoch_comparison.json`, `scripts/ci_compare_e9.py`.
 
+**A.6 — Complemento normativo da Fase 4.** Código isolado `audit/m2_fase4/`, tópico `pedidos` em três partições e RF3 e sequências E4 de 1–30 sem chave e 1–30 com chave única. Execução e arquivos: **workflow #40795085275, execução bem-sucedida, artifact GitHub #12863137924** (digest SHA-256 informado pelo GitHub `5f4292fb945b28c4713da354d59e89a9d62f22258c1ebd197a4e1358eeac1c67`); cópias textuais dos logs e validadores em `audit/m2_fase4/evidence/run-40795085275/`. `e1_describe_pedidos.log`, `e1_metadata_quorum.log`, `e4_30_sem_chave_e_mesma_chave.log`, `e1_validacao.json`, `e4_validacao.json` e `sha256_arquivos.txt`. Esses logs são independentes dos resultados E1/E4 historicamente preservados. O comando `--num-records 50000 --record-size 200` de E3 não foi executado nesta Fase 4.
+
+
 # Anexo B — Matriz de conformidade da elaboração (fora da extensão do corpo)
 
 | Item obrigatório da seção 10 | Estado na redação | Verificação / pendência |
@@ -470,7 +473,7 @@ As 21 referências [R1]–[R21] reproduzem as identificações verificadas na Fa
 | 2 Resumo | Atendido na redação | Revisão humana da síntese pendente |
 | 3 Fundamentação | Atendido na redação | Fontes [R1–R21], Fig. 1–3 |
 | 4 Ambiente | Parcial | Runner e Compose documentados; inventário físico não registrado |
-| 5 E1–E9 | Atendido na redação com limites | Logs e n=5 nas tabelas 2–6; E3 sem tempo follower |
+| 5 E1–E9 | Parcial até reauditoria | E1/E4 complementares Fase 4 separados; E3 sem propagação por follower e carga diferente do comando de 50.000/200; E5 matriz consolidada; n=5 preservado nas séries históricas |
 | 6 Q1–Q14 | Atendido na redação | 14 perguntas literais e respostas rastreáveis |
 | 7 S1–S4 | Atendido na redação | 4 perguntas literais e respostas |
 | 8 Quadro-síntese | Atendido na redação | 10/10 campos p. 41 |
@@ -478,4 +481,4 @@ As 21 referências [R1]–[R21] reproduzem as identificações verificadas na Fa
 | 10 Contribuições individuais | Parcial | Todos os nomes e papéis humanos pendentes |
 | 11 Declaração IA | Parcial | Declaração transparente; aprovação humana pendente |
 | 12 Referências | Atendido na redação | 21 entradas; revisão normativa humana final pendente |
-| Extensão e renderização | Atendido na renderização verificada | PDF A4 com **19 páginas totais**; **18 páginas antes dos anexos**, iniciados na **página 19**. Conferidos sumário, tabelas, figuras, fontes, caracteres e ausência de cortes na renderização. DOCX regenerado da mesma revisão; sua paginação pode variar conforme o editor. |
+| Extensão e renderização | Atendido tecnicamente, sob reauditoria | PDF A4 com **22 páginas totais**; **20 páginas antes dos anexos**, que começam na **página 21** (Anexo B na página 22). PDF/DOCX gerados da mesma revisão; ver manifesto com hash. Conferidos sumário, tabelas, figuras, caracteres e ausência de blocos fora da página. A paginação do Word pode variar; revisão humana ainda pendente. |

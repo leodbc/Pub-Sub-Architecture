@@ -1,0 +1,5 @@
+NAME      IMAGE                       COMMAND                  SERVICE   CREATED         STATUS         PORTS
+cliente   apache/kafka:4.4.0          "sleep infinity"         cliente   9 seconds ago   Up 8 seconds   9092/tcp
+kafka1    apache/kafka-native:4.4.0   "/etc/kafka/docker/r…"   kafka1    9 seconds ago   Up 8 seconds   9092/tcp
+kafka2    apache/kafka-native:4.4.0   "/etc/kafka/docker/r…"   kafka2    9 seconds ago   Up 8 seconds   9092/tcp
+kafka3    apache/kafka-native:4.4.0   "/etc/kafka/docker/r…"   kafka3    9 seconds ago   Up 8 seconds   9092/tcp

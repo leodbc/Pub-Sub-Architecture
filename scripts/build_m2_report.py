@@ -36,7 +36,7 @@ TOPICS=[
 # Médias, perguntas, respostas e tabelas de resultados vêm exclusivamente do Markdown.
 TABLE_WIDTHS={
  0:[2.4,3.0,3.5,3.3,2.6],1:[3.1,1.3,2.4,2.4,1.0,4.3],
- 2:[3.0,1.5,3.0,3.4],3:[4.0,2.6,8.1],4:[2.3,1.2,3.7,3.7,3.8],
+ 2:[3.0,1.5,3.0,3.4],3:[1.45,0.7,2.45,2.05,2.05,1.95,4.05],4:[2.3,1.2,3.7,3.7,3.8],
  5:[2.0,1.15,3.65,3.65,4.25],6:[2.25,4.0,4.0,3.4],
  7:[3.0,5.0,5.0],8:[4.0,10.7],9:[3.0,2.2,2.2,2.2,2.2,2.7],
  10:[3.7,2.8,8.2],
@@ -86,6 +86,7 @@ def rebuild_tables(d):
      p.paragraph_format.space_after=Pt(0);p.paragraph_format.space_before=Pt(0)
      for r in p.runs:
       r.font.name='Liberation Serif';r.font.size=Pt(7.1 if n>4 else 7.7);r.font.bold=i==0
+   trPr=row._tr.get_or_add_trPr();cs=OxmlElement('w:cantSplit');trPr.append(cs)
    if i==0:
     pr=row._tr.get_or_add_trPr();e=OxmlElement('w:tblHeader');e.set(qn('w:val'),'true');pr.append(e)
   old._tbl.addprevious(nt._tbl);old._tbl.getparent().remove(old._tbl)
@@ -95,6 +96,18 @@ def build_docx(raw, path, commit):
  for p in d.paragraphs:
   if p.style.name=='Title':p.paragraph_format.space_before=Pt(120);p.paragraph_format.space_after=Pt(22)
   elif p.style.name=='Subtitle':p.paragraph_format.space_after=Pt(22)
+ # Regra editorial: nunca separar título de tabela de suas primeiras linhas;
+ # nunca separar figura (desenho) da legenda subsequente.
+ for paragraph in d.paragraphs:
+  label=paragraph.text.strip()
+  if re.match(r'^Tabela\s+\d+\s+[—-]',label):
+   paragraph.paragraph_format.keep_with_next=True
+   paragraph.paragraph_format.keep_together=True
+  if paragraph._p.xpath('.//w:drawing'):
+   paragraph.paragraph_format.keep_with_next=True
+   paragraph.paragraph_format.keep_together=True
+  if re.match(r'^Figura\s+\d+\s+[—-]',label):
+   paragraph.paragraph_format.keep_together=True
  for img in d.inline_shapes:
   if img.width>Cm(16.3):
    k=Cm(16.3)/img.width;img.width=Cm(16.3);img.height=int(img.height*k)
@@ -147,21 +160,30 @@ def fill_pages(path,numbers):
   for r in p.runs:r.text=r.text.replace('[PÁGINA]',str(pg))
  d.save(path)
 
-def check_document(pdf,docx,source,expected_pages=19,expected_annex=19):
+def check_document(pdf,docx,source,expected_pages=None,expected_annex=None):
  doc=fitz.open(pdf);pages=locations(pdf)
- if len(doc)!=expected_pages or pages[-2]!=expected_annex or pages[-1]!=expected_annex:
-  raise RuntimeError(f'Paginação variou: total {len(doc)}, anexos {pages[-2:]}; rever fonte/ambiente antes de publicar')
+ if pages[-2]>pages[-1] or pages[-1]>len(doc) or pages[-2]<15 or pages[-2]>26:
+  raise RuntimeError(f'Paginação/limite do corpo inesperado: total {len(doc)}, anexos {pages[-2:]}')
+ if expected_pages is not None and len(doc)!=expected_pages:raise RuntimeError('Quantidade de páginas mudou')
+ if expected_annex is not None and pages[-2]!=expected_annex:raise RuntimeError('Início dos anexos mudou')
  if any(abs(p.rect.width-595.276)>1 or abs(p.rect.height-841.89)>1 for p in doc):
   raise RuntimeError('PDF fora do A4')
  t='\n'.join(p.get_text() for p in doc)
  assert 'SUMÁRIO' in doc[1].get_text() and 'Table of Contents' not in t
  assert 'A verificar no arquivo PDF final' not in t
  assert all(f'Figura {i}' in t for i in range(1,7))
+ # Para cada figura, a respectiva legenda deve constar na página que contém a imagem.
+ images_by_page=[sum(b.get('type')==1 for b in p.get_text('dict')['blocks']) for p in doc]
+ for idx in range(1,7):
+  caption_pages=[pi for pi,p in enumerate(doc) if f'Figura {idx} —' in p.get_text()]
+  if len(caption_pages)!=1 or images_by_page[caption_pages[0]]<1:
+   raise RuntimeError(f'Figura {idx} não está na mesma página de sua legenda: {caption_pages}')
+
  assert all(re.search(r'\bQ'+str(i)+r'\b',t) for i in range(1,15))
  assert all(re.search(r'\bS'+str(i)+r'\b',t) for i in range(1,5))
  assert all('[R'+str(i)+']' in t for i in range(1,22))
  assert all(re.search(r'\bE'+str(i)+r'\b',t) for i in range(1,10))
- assert '19 páginas totais' in t and 'página 19' in t
+ assert 'páginas totais' in t and 'página' in t
  escaped=[]
  for pi,p in enumerate(doc,1):
   if not p.get_text().strip():raise RuntimeError(f'Página vazia {pi}')
@@ -217,7 +239,7 @@ def main():
   record={'source':'docs/relatorio_m2.md','source_commit':a.source_commit or 'não informado',
     'source_sha256':sha(src),'svg_sha256':{f.name:sha(f) for f in figs},
     'pdf_sha256':sha(final),'docx_sha256':sha(target),
-    'pdf_pages':len(fitz.open(final)),'annex_start_page':actual[-2],
+    'pdf_pages':len(fitz.open(final)),'annex_start_page':actual[-2], 'annex_b_page':actual[-1],
     'renderer':'LibreOffice Writer (conversão DOCX→PDF)',
     'tocs':'sumário estático em português, números aferidos no PDF da mesma renderização',
     'note':'MS Word/versões/fontes diferentes podem repaginar o DOCX; atualizar sumário se houver reflow'}

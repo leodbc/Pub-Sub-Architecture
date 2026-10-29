@@ -1,4 +1,4 @@
-# Reconstrução do Relatório M2 (Fase 3)
+# Reconstrução do Relatório M2 (versão após correções da Fase 4)
 
 Fonte autoral única: `docs/relatorio_m2.md`; figuras editáveis: `docs/figuras_m2/01_*.svg` a `06_*.svg`. O script `scripts/build_m2_report.py` constrói DOCX, converte **esse mesmo DOCX** em PDF e registra os hashes dos insumos e saídas, a paginação e o commit informado em `dist/manifest.json`.
 
@@ -29,3 +29,13 @@ Dependem de serviços/ambientes externos: a preservação dos artefatos históri
 `dist/manifest.json` grava o commit do **documento-fonte** passado no comando, o SHA-256 desse Markdown e dos seis SVG, e os SHA-256 dos dois binários. Compare `source_sha256` com os bytes do arquivo no commit indicado. A auditoria de cortes e páginas do script é técnica e não substitui a inspeção visual do PDF e DOCX e a revisão acadêmica humana. Não preencher automaticamente nomes, matrículas, turma, contribuições individuais ou confirmação humana de IA.
 
 **Versões da renderização validada em 28/10/2026:** Pandoc 3.1.11.1; LibreOffice 25.2.3.2; Inkscape 1.4; Python `python-docx` 1.2.0 e PyMuPDF 1.26.7. As dependências Python estão restritas por faixas no arquivo `requirements-relatorio.txt`; para reprodutibilidade visual estrita, registre também as versões do sistema e fontes.
+
+## Complemento da Fase 4 (sem mesclar séries)
+
+A revisão de Fase 4 acrescenta ao texto a topologia normativa do tópico `pedidos` com 3 partições/RF3 e dois cenários E4 separados (30 sem chave; 30 com chave única), provenientes exclusivamente do run #40795085275 e de suas cópias em `audit/m2_fase4/evidence/run-40795085275/`. Não modifica os ZIPs, séries e experimentos da Fase 1.
+
+A matriz E5 agora inclui “não instrumentada” para células sem evidência; e E3 expõe a diferença entre 200 mensagens por rodada e o comando de 50.000 mensagens de 200 bytes do roteiro, sem afirmar que o benchmark histórico mediu propagação em cada follower. A interpretação normativa final de E3 requer resposta dos responsáveis pela disciplina.
+
+O programa de renderização mantém título e primeira linha de cada tabela juntos, impede que linhas sejam partidas e mantém figura e legenda juntas. A checagem dos objetos de imagem usa os **blocos de imagem efetivamente exibidos** por página (não apenas recursos PDF compartilhados), e os números do sumário são calculados na renderização LibreOffice. O DOCX continua dependente do motor/fontes do editor; diferenças no Word são possíveis.
+
+Paginação verificada na revisão de Fase 4: **20 páginas A4, 18 antes dos anexos; Anexo A na página 19 e Anexo B na página 20**. A convenção de fonte no comando deve apontar para o commit final da revisão que contém o Markdown e o script. O PDF/DOCX resultante e seu manifesto são derivados, não provas científicas adicionais.

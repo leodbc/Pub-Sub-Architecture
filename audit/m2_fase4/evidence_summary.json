@@ -1,0 +1,90 @@
+{
+  "status": "observed_and_validated",
+  "source_run_id": 40795085275,
+  "source_commit": "a7fa581dc0d9681ce3fc7330b6b1c1134bcb9482",
+  "original_zip_sha256": "5f4292fb945b28c4713da354d59e89a9d62f22258c1ebd197a4e1358eeac1c67",
+  "original_artifact_url": "https://github.com/leodbc/Pub-Sub-Architecture/actions/runs/40795085275/artifacts/12863137924",
+  "e1": {
+    "topic": "pedidos",
+    "partitions": 3,
+    "replication_factor": 3,
+    "min_insync_replicas": 2,
+    "partition_states": [
+      {
+        "partition": 0,
+        "leader": 2,
+        "replicas": [
+          2,
+          3,
+          1
+        ],
+        "isr": [
+          2,
+          3,
+          1
+        ]
+      },
+      {
+        "partition": 1,
+        "leader": 3,
+        "replicas": [
+          3,
+          1,
+          2
+        ],
+        "isr": [
+          3,
+          1,
+          2
+        ]
+      },
+      {
+        "partition": 2,
+        "leader": 1,
+        "replicas": [
+          1,
+          2,
+          3
+        ],
+        "isr": [
+          1,
+          2,
+          3
+        ]
+      }
+    ],
+    "controller_leader_id": 3,
+    "controller_leader_epoch": 1,
+    "current_voters": [
+      1,
+      2,
+      3
+    ]
+  },
+  "e4": {
+    "without_key": {
+      "produced": 30,
+      "consumed": 30,
+      "partition": 0,
+      "offsets": "0–29",
+      "inversions_per_partition": 0
+    },
+    "same_key": {
+      "produced": 30,
+      "consumed": 30,
+      "partition": 2,
+      "offsets": "0–29",
+      "inversions_per_partition": 0
+    },
+    "limitation": "Unkeyed sample confined to partition 0; does not demonstrate global ordering or disorder"
+  },
+  "raw_logs": [
+    "e1_describe_pedidos.log",
+    "e1_metadata_quorum.log",
+    "e4_30_sem_chave_e_mesma_chave.log",
+    "e1_validacao.json",
+    "e4_validacao.json",
+    "sha256_arquivos.txt"
+  ],
+  "method": "Values transcribed from original artifact; independent JSON verification and per-file SHA256 available in ZIP."
+}

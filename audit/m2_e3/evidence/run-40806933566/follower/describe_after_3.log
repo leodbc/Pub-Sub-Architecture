@@ -1,0 +1,2 @@
+Topic: m2_e3_follower_40806933566_3	TopicId: 9A1vaWZ3ThG38viWsUddzw	PartitionCount: 1	ReplicationFactor: 3	Configs: min.insync.replicas=2
+	Topic: m2_e3_follower_40806933566_3	Partition: 0	Leader: 2	Replicas: 2,3,1	Isr: 2,3,1	Elr: 	LastKnownElr: 

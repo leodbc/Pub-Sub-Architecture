@@ -1,0 +1,8 @@
+ClusterId:              MkU3OEVBNTcwNTJENDM2Qk
+LeaderId:               3
+LeaderEpoch:            1
+HighWatermark:          24
+MaxFollowerLag:         0
+MaxFollowerLagTimeMs:   186
+CurrentVoters:          [{"id": 1, "endpoints": ["CONTROLLER://172.30.0.41:9093"]}, {"id": 2, "endpoints": ["CONTROLLER://172.30.0.42:9093"]}, {"id": 3, "endpoints": ["CONTROLLER://172.30.0.43:9093"]}]
+CurrentObservers:       []

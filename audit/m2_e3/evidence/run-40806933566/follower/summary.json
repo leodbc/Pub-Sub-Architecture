@@ -1,0 +1,376 @@
+{
+  "follower_read": {
+    "observations": [
+      {
+        "ack_ms": 1726.409,
+        "ack_to_callback_ms": 500.821,
+        "ack_utc": "2026-10-29T02:33:08.405611497Z",
+        "batch_hook_recorded": true,
+        "batch_serving_broker": 1,
+        "fetch_batch_events": [
+          {
+            "broker": 1,
+            "partition": 0,
+            "topic": "m2_e3_follower_40806933566_1"
+          }
+        ],
+        "fetch_high_watermark": 1,
+        "fetch_response_brokers": [
+          3,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "follower_fetch_confirmed": true,
+        "key": "e3-m2_e3_follower_40806933566_1-1",
+        "leader": 3,
+        "leader_fetch_reported": false,
+        "observed_utc": "2026-10-29T02:33:08.906432951Z",
+        "offset": 0,
+        "partition": 0,
+        "producer_offset": 0,
+        "producer_partition": 0,
+        "record_id": "e3-m2_e3_follower_40806933566_1-1-unique",
+        "selected_follower": 1,
+        "send_to_callback_ms": 2227.231,
+        "send_utc": "2026-10-29T02:33:06.679201643Z",
+        "timing_source": "monotonic time.Time within one Go process",
+        "topic": "m2_e3_follower_40806933566_1",
+        "trial": 1
+      },
+      {
+        "ack_ms": 23.376,
+        "ack_to_callback_ms": 500.818,
+        "ack_utc": "2026-10-29T02:33:19.281531884Z",
+        "batch_hook_recorded": true,
+        "batch_serving_broker": 1,
+        "fetch_batch_events": [
+          {
+            "broker": 1,
+            "partition": 0,
+            "topic": "m2_e3_follower_40806933566_2"
+          }
+        ],
+        "fetch_high_watermark": 1,
+        "fetch_response_brokers": [
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "follower_fetch_confirmed": true,
+        "key": "e3-m2_e3_follower_40806933566_2-2",
+        "leader": 2,
+        "leader_fetch_reported": false,
+        "observed_utc": "2026-10-29T02:33:19.782350546Z",
+        "offset": 0,
+        "partition": 0,
+        "producer_offset": 0,
+        "producer_partition": 0,
+        "record_id": "e3-m2_e3_follower_40806933566_2-2-unique",
+        "selected_follower": 1,
+        "send_to_callback_ms": 524.195,
+        "send_utc": "2026-10-29T02:33:19.258155388Z",
+        "timing_source": "monotonic time.Time within one Go process",
+        "topic": "m2_e3_follower_40806933566_2",
+        "trial": 2
+      },
+      {
+        "ack_ms": 4.34,
+        "ack_to_callback_ms": 500.473,
+        "ack_utc": "2026-10-29T02:33:30.117727959Z",
+        "batch_hook_recorded": true,
+        "batch_serving_broker": 1,
+        "fetch_batch_events": [
+          {
+            "broker": 1,
+            "partition": 0,
+            "topic": "m2_e3_follower_40806933566_3"
+          }
+        ],
+        "fetch_high_watermark": 1,
+        "fetch_response_brokers": [
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "follower_fetch_confirmed": true,
+        "key": "e3-m2_e3_follower_40806933566_3-3",
+        "leader": 2,
+        "leader_fetch_reported": false,
+        "observed_utc": "2026-10-29T02:33:30.618201942Z",
+        "offset": 0,
+        "partition": 0,
+        "producer_offset": 0,
+        "producer_partition": 0,
+        "record_id": "e3-m2_e3_follower_40806933566_3-3-unique",
+        "selected_follower": 1,
+        "send_to_callback_ms": 504.814,
+        "send_utc": "2026-10-29T02:33:30.113387482Z",
+        "timing_source": "monotonic time.Time within one Go process",
+        "topic": "m2_e3_follower_40806933566_3",
+        "trial": 3
+      },
+      {
+        "ack_ms": 4.261,
+        "ack_to_callback_ms": 501.032,
+        "ack_utc": "2026-10-29T02:33:40.887816091Z",
+        "batch_hook_recorded": true,
+        "batch_serving_broker": 1,
+        "fetch_batch_events": [
+          {
+            "broker": 1,
+            "partition": 0,
+            "topic": "m2_e3_follower_40806933566_4"
+          }
+        ],
+        "fetch_high_watermark": 1,
+        "fetch_response_brokers": [
+          3,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "follower_fetch_confirmed": true,
+        "key": "e3-m2_e3_follower_40806933566_4-4",
+        "leader": 3,
+        "leader_fetch_reported": false,
+        "observed_utc": "2026-10-29T02:33:41.388848935Z",
+        "offset": 0,
+        "partition": 0,
+        "producer_offset": 0,
+        "producer_partition": 0,
+        "record_id": "e3-m2_e3_follower_40806933566_4-4-unique",
+        "selected_follower": 1,
+        "send_to_callback_ms": 505.294,
+        "send_utc": "2026-10-29T02:33:40.883554825Z",
+        "timing_source": "monotonic time.Time within one Go process",
+        "topic": "m2_e3_follower_40806933566_4",
+        "trial": 4
+      },
+      {
+        "ack_ms": 4.264,
+        "ack_to_callback_ms": 500.414,
+        "ack_utc": "2026-10-29T02:33:51.704522529Z",
+        "batch_hook_recorded": true,
+        "batch_serving_broker": 1,
+        "fetch_batch_events": [
+          {
+            "broker": 1,
+            "partition": 0,
+            "topic": "m2_e3_follower_40806933566_5"
+          }
+        ],
+        "fetch_high_watermark": 1,
+        "fetch_response_brokers": [
+          3,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "follower_fetch_confirmed": true,
+        "key": "e3-m2_e3_follower_40806933566_5-5",
+        "leader": 3,
+        "leader_fetch_reported": false,
+        "observed_utc": "2026-10-29T02:33:52.204937191Z",
+        "offset": 0,
+        "partition": 0,
+        "producer_offset": 0,
+        "producer_partition": 0,
+        "record_id": "e3-m2_e3_follower_40806933566_5-5-unique",
+        "selected_follower": 1,
+        "send_to_callback_ms": 504.678,
+        "send_utc": "2026-10-29T02:33:51.700258262Z",
+        "timing_source": "monotonic time.Time within one Go process",
+        "topic": "m2_e3_follower_40806933566_5",
+        "trial": 5
+      }
+    ],
+    "n": 5,
+    "follower_confirmed": 5,
+    "send_to_ack": {
+      "n": 5,
+      "individual_ms": [
+        1726.409,
+        23.376,
+        4.34,
+        4.261,
+        4.264
+      ],
+      "mean_ms": 352.53000000000003,
+      "sample_sd_ms": 768.0661823003927
+    },
+    "send_to_callback": {
+      "n": 5,
+      "individual_ms": [
+        2227.231,
+        524.195,
+        504.814,
+        505.294,
+        504.678
+      ],
+      "mean_ms": 853.2424000000001,
+      "sample_sd_ms": 768.128316805402
+    },
+    "ack_to_callback": {
+      "n": 5,
+      "individual_ms": [
+        500.821,
+        500.818,
+        500.473,
+        501.032,
+        500.414
+      ],
+      "mean_ms": 500.7116,
+      "sample_sd_ms": 0.26050009596926843
+    },
+    "interpretation": "End-to-end durations include client scheduling/polling; not direct measurement of follower log-apply time."
+  },
+  "producer_benchmark": {
+    "1": {
+      "individual": [
+        {
+          "file": "perf_1_1.log",
+          "records": 50000,
+          "records_per_sec": 46554.934823,
+          "producer_avg_latency_ms": 98.83
+        },
+        {
+          "file": "perf_1_2.log",
+          "records": 50000,
+          "records_per_sec": 47258.979206,
+          "producer_avg_latency_ms": 98.39
+        },
+        {
+          "file": "perf_1_3.log",
+          "records": 50000,
+          "records_per_sec": 47938.638543,
+          "producer_avg_latency_ms": 126.21
+        },
+        {
+          "file": "perf_1_4.log",
+          "records": 50000,
+          "records_per_sec": 46685.340803,
+          "producer_avg_latency_ms": 105.49
+        },
+        {
+          "file": "perf_1_5.log",
+          "records": 50000,
+          "records_per_sec": 45955.882353,
+          "producer_avg_latency_ms": 167.48
+        }
+      ],
+      "n": 5,
+      "throughput_records_sec": {
+        "individual": [
+          46554.934823,
+          47258.979206,
+          47938.638543,
+          46685.340803,
+          45955.882353
+        ],
+        "mean": 46878.7551456,
+        "sample_sd": 751.9783994179472
+      },
+      "avg_latency_ms": {
+        "individual": [
+          98.83,
+          98.39,
+          126.21,
+          105.49,
+          167.48
+        ],
+        "mean": 119.28,
+        "sample_sd": 29.22337933915241
+      }
+    },
+    "all": {
+      "individual": [
+        {
+          "file": "perf_all_1.log",
+          "records": 50000,
+          "records_per_sec": 43668.122271,
+          "producer_avg_latency_ms": 179.64
+        },
+        {
+          "file": "perf_all_2.log",
+          "records": 50000,
+          "records_per_sec": 43591.979076,
+          "producer_avg_latency_ms": 96.56
+        },
+        {
+          "file": "perf_all_3.log",
+          "records": 50000,
+          "records_per_sec": 40485.82996,
+          "producer_avg_latency_ms": 130.69
+        },
+        {
+          "file": "perf_all_4.log",
+          "records": 50000,
+          "records_per_sec": 42808.219178,
+          "producer_avg_latency_ms": 105.55
+        },
+        {
+          "file": "perf_all_5.log",
+          "records": 50000,
+          "records_per_sec": 43859.649123,
+          "producer_avg_latency_ms": 143.55
+        }
+      ],
+      "n": 5,
+      "throughput_records_sec": {
+        "individual": [
+          43668.122271,
+          43591.979076,
+          40485.82996,
+          42808.219178,
+          43859.649123
+        ],
+        "mean": 42882.7599216,
+        "sample_sd": 1398.6536297371022
+      },
+      "avg_latency_ms": {
+        "individual": [
+          179.64,
+          96.56,
+          130.69,
+          105.55,
+          143.55
+        ],
+        "mean": 131.198,
+        "sample_sd": 33.0040462670867
+      }
+    }
+  },
+  "warnings": [],
+  "method": "Historical 200-message runs remain independent; 50,000x200-byte runs are separate and use kafka-producer-perf-test."
+}

@@ -1,0 +1,10 @@
+total 16
+drwxr-xr-x    3 appuser  appuser       4096 Oct 29 02:32 .
+drwxrwxrwt    1 root     root          4096 Oct 29 02:32 ..
+-rw-r--r--    1 appuser  appuser          0 Oct 29 02:32 .lock
+drwxr-xr-x    2 appuser  appuser       4096 Oct 29 02:32 __cluster_metadata-0
+-rw-r--r--    1 appuser  appuser          0 Oct 29 02:32 cleaner-offset-checkpoint
+-rw-r--r--    1 appuser  appuser          0 Oct 29 02:32 log-start-offset-checkpoint
+-rw-r--r--    1 appuser  appuser        122 Oct 29 02:32 meta.properties
+-rw-r--r--    1 appuser  appuser          0 Oct 29 02:32 recovery-point-offset-checkpoint
+-rw-r--r--    1 appuser  appuser          0 Oct 29 02:32 replication-offset-checkpoint

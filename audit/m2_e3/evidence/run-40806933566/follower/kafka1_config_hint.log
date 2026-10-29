@@ -1,0 +1,2 @@
+replica.selector.class=org.apache.kafka.common.replica.RackAwareReplicaSelector
+broker.rack=rack-1

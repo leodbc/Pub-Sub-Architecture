@@ -36,10 +36,13 @@ TOPICS=[
 # Médias, perguntas, respostas e tabelas de resultados vêm exclusivamente do Markdown.
 TABLE_WIDTHS={
  0:[2.4,3.0,3.5,3.3,2.6],1:[3.1,1.3,2.4,2.4,1.0,4.3],
- 2:[3.0,1.5,3.0,3.4],3:[1.3,1.05,2.2,2.0,2.0,1.9,4.25],4:[2.25,1.45,3.7,3.7,3.6],
- 5:[2.0,1.15,3.65,3.65,4.25],6:[2.25,4.0,4.0,3.4],
- 7:[3.0,5.0,5.0],8:[4.0,10.7],9:[3.0,2.2,2.2,2.2,2.2,2.7],
- 10:[3.7,2.8,8.2],
+ 2:[3.0,1.5,3.0,3.4],
+ 3:[1.15,1.15,2.0,3.0,3.2,1.0], # E3-A: five follower read observations
+ 4:[1.3,3.1,2.8,3.1,2.8],     # E3-B: 50k records, five trials by acks
+ 5:[1.3,1.05,2.2,2.0,2.0,1.9,4.25],6:[2.25,1.45,3.7,3.7,3.6],
+ 7:[2.0,1.15,3.65,3.65,4.25],8:[2.25,4.0,4.0,3.4],
+ 9:[3.0,5.0,5.0],10:[4.0,10.7],11:[3.0,2.2,2.2,2.2,2.2,2.7],
+ 12:[3.7,2.8,8.2],
 }
 
 def run(cmd, cwd=None, env=None):
@@ -105,9 +108,9 @@ def build_docx(raw, path, commit):
    paragraph.paragraph_format.page_break_before=True
   # As tabelas longas E5/E6 cabem separadamente em uma página; iniciar uma
   # nova página evita quebra entre o título e as últimas linhas (LibreOffice).
-  if re.match(r'^Tabela [45]\s*[—-]', label):
+  if re.match(r'^Tabela [45]\s*[—-]', label) or re.match(r'^Tabela E3-A\s*[—-]', label):
    paragraph.paragraph_format.page_break_before=True
-  if re.match(r'^Tabela\s+\d+\s+[—-]',label):
+  if re.match(r'^Tabela(?:\s+\d+|\s+E3-[AB])\s+[—-]',label):
    paragraph.paragraph_format.keep_with_next=True
    paragraph.paragraph_format.keep_together=True
   if paragraph._p.xpath('.//w:drawing'):
@@ -188,7 +191,7 @@ def check_document(pdf,docx,source,expected_pages=None,expected_annex=None):
 
  assert all(re.search(r'\bQ'+str(i)+r'\b',t) for i in range(1,15))
  assert all(re.search(r'\bS'+str(i)+r'\b',t) for i in range(1,5))
- assert all('[R'+str(i)+']' in t for i in range(1,22))
+ assert all('[R'+str(i)+']' in t for i in range(1,23))
  assert all(re.search(r'\bE'+str(i)+r'\b',t) for i in range(1,10))
  assert 'páginas totais' in t and 'página' in t
  escaped=[]
@@ -201,12 +204,12 @@ def check_document(pdf,docx,source,expected_pages=None,expected_annex=None):
  if escaped:raise RuntimeError(f'Texto fora da página: {escaped[:5]}')
  d=Document(docx)
  assert len(d.inline_shapes)==6, len(d.inline_shapes)
- assert len(d.tables)==11, len(d.tables)
+ assert len(d.tables)==13, len(d.tables)
  assert all('[PÁGINA]' not in p.text for p in d.paragraphs)
  with zipfile.ZipFile(docx) as z:
   xml=z.read('word/document.xml').decode()
   if 'Table of Contents' in xml or '<w:sdt>' in xml:raise RuntimeError('Sumário Pandoc antigo ainda presente')
- print('AUDITORIA OK:',len(doc),'páginas PDF A4, anexos iniciam',pages[-2],'; 6 imagens, 11 tabelas; 18 questões, 21 refs')
+ print('AUDITORIA OK:',len(doc),'páginas PDF A4, anexos iniciam',pages[-2],'; 6 imagens, 13 tabelas; 18 questões, 22 refs')
  return pages
 
 def main():

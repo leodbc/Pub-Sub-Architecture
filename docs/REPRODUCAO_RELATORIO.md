@@ -38,4 +38,8 @@ A matriz E5 agora inclui “não instrumentada” para células sem evidência; 
 
 O programa de renderização mantém título e primeira linha de cada tabela juntos, impede que linhas sejam partidas e mantém figura e legenda juntas. A checagem dos objetos de imagem usa os **blocos de imagem efetivamente exibidos** por página (não apenas recursos PDF compartilhados), e os números do sumário são calculados na renderização LibreOffice. O DOCX continua dependente do motor/fontes do editor; diferenças no Word são possíveis.
 
-Paginação verificada nesta revisão de Fase 4: **22 páginas A4, 20 antes dos anexos; Anexo A na página 21 e Anexo B na página 22**. A paginação no Microsoft Word pode diferir. A convenção de fonte no comando deve apontar para o commit final da revisão que contém o Markdown e o script. O PDF/DOCX resultante e seu manifesto são derivados, não provas científicas adicionais.
+Paginação verificada no complemento E3: **24 páginas A4, 22 antes dos anexos; Anexo A na página 23 e Anexo B na página 24**. A paginação no Microsoft Word pode diferir. A convenção de fonte no comando deve apontar para o commit final da revisão que contém o Markdown e o script. O PDF/DOCX resultante e seu manifesto são derivados, não provas científicas adicionais.
+
+## Complemento E3 (29/10/2026) — bibliografia e séries independentes
+
+O relatório agora incorpora duas tabelas adicionais de resultados (13 tabelas no DOCX) e a KIP-392 [R22]. A reprodução exige ainda os mesmos seis SVGs e o script versionado nesta revisão. Novos logs e medições: `audit/m2_e3/evidence/run-40806933566/`. O benchmark de 50.000 × 200 bytes é independente do E3 histórico de 200 mensagens, e a duração ponta a ponta via follower não mede o append interno da réplica. Ver `audit/m2_e3/RESULTADOS_40806933566.md` e o arquivo de manifesto para os hashes. Não altera as evidências históricas.

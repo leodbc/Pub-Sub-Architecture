@@ -120,7 +120,7 @@ O laboratório registra cinco ciclos onde o roteiro pede medidas temporais e uti
 
 **Objetivo e previsão:** RF3 replicado nos três nós; `acks=1` tende a reduzir custo de confirmação frente a `acks=all`, sem equivalência de durabilidade; JetStream RF3 tem protocolo distinto. **Procedimento:** benchmark de 200 mensagens/rodada, cinco rodadas por configuração, com log do `sdtool bench`; teste complementar separado de envio a callback do consumidor também em n=5. **[O]** E1 confirmou RF3 e ISR; o benchmark apresentou os valores da Tabela 2, sem erro contado nos ensaios. **[L]** ACK e callback **não** medem instante de escrita individual em cada follower. As tabelas do benchmark e do teste complementar não podem ser agregadas numa única média porque workloads e instrumentos diferem.
 
-**Relação entre as instruções do roteiro (E3).** A tabela geral de E3, na **página 9**, solicita demonstração de replicação, leitura por outro nó e medição da propagação com média e desvio. A operacionalização específica para Kafka nas **páginas 31–32** explicita a presença de réplicas nos três nós, a comparação de **latência e vazão do produtor com `acks=1` versus `acks=all`** em cinco repetições e apresenta o comando `kafka-producer-perf-test.sh --num-records 50000 --record-size 200` como configuração concreta. Os resultados históricos desta pesquisa usaram **200 mensagens por repetição**, não 50.000 mensagens de 200 bytes no perf-test; portanto **não constituem execução literal do comando impresso**, e comparar suas médias diretamente com os valores ilustrativos do roteiro seria incorreto. As cinco repetições de latência/vazão Kafka atendem ao desenho estatístico mensurado, mas a aderência integral ao volume de carga do comando e ao item geral de propagação por seguidor exige **confirmação interpretativa do professor**. Nenhum timestamp individual de aplicação em follower foi obtido; ACK e callback não o substituem. **Não declarar aprovação normativa antecipada de E3.**
+**Relação entre as instruções do roteiro (E3) e a lacuna histórica, posteriormente complementada no ensaio #40806933566.** A tabela geral de E3, na **página 9**, solicita demonstração de replicação, leitura por outro nó e medição da propagação com média e desvio. A operacionalização específica para Kafka nas **páginas 31–32** explicita a presença de réplicas nos três nós, a comparação de **latência e vazão do produtor com `acks=1` versus `acks=all`** em cinco repetições e apresenta o comando `kafka-producer-perf-test.sh --num-records 50000 --record-size 200` como configuração concreta. Os resultados históricos desta pesquisa usaram **200 mensagens por repetição**, não 50.000 mensagens de 200 bytes no perf-test; portanto **não constituem execução literal do comando impresso**, e comparar suas médias diretamente com os valores ilustrativos do roteiro seria incorreto. As cinco repetições de latência/vazão Kafka atendem ao desenho estatístico mensurado, mas a aderência integral ao volume de carga do comando e ao item geral de propagação por seguidor exige **confirmação interpretativa do professor**. Nenhum timestamp individual de aplicação em follower foi obtido; ACK e callback não o substituem. **Não declarar aprovação normativa antecipada de E3.**
 
 **Tabela 2 — Cinco repetições, média e desvio padrão amostral: latência ACK e vazão de E3.**
 
@@ -172,6 +172,41 @@ O laboratório registra cinco ciclos onde o roteiro pede medidas temporais e uti
 | nats | 5 | 0,570 | 0,546 |
 
 *Fonte: CSVs `kafka_all.csv`, `kafka_1.csv`, `nats.csv`, artifact #12849007298 (EV-E3). O callback pode anteceder o ACK; relógio monotônico no mesmo processo, sem acesso a offsets de followers.*
+
+**Complemento dirigido E3, execução independente #40806933566 (29 out. 2026).** A referência [R22] (KIP-392) especifica leitura de seguidor mediante seleção de réplica: o `bootstrap` identifica entrada/descoberta, **não** o servidor que realmente entrega os registros. A configuração de ensaio ativou `broker.rack=rack-1/2/3` e `replica.selector.class=org.apache.kafka.common.replica.RackAwareReplicaSelector`; o cliente Go usou `client.rack=rack-1`. Em cinco tópicos novos RF3, partição 0, cada registro possuía chave e identificador exclusivos, com offset produzido e lido **0**, ISR completo **3/3** e high watermark devolvido no Fetch **1**. A instrumentação `OnFetchBatchRead` do franz-go identificou **broker 1** como quem entregou o lote do registro; `OnBrokerRead` mostrou inicialmente Fetch ao líder **2 ou 3**, seguido de Fetch ao broker 1. O broker 1 **não era líder em nenhuma das cinco execuções**: portanto não se trata de mero bootstrap em broker diferente. A identificação é observação de cliente sobre a resposta Fetch, não acesso direto a todo evento de replicação em disco. 
+
+**Atenção à medida:** as cinco durações `envio→ACK` e `envio→leitura` foram obtidas com `time.Time` monotônico em um único processo; a primeira inclui elevado custo de inicialização e não foi descartada. `ACK→leitura` teve **500,712 ± 0,261 ms** (DP amostral), compatível com o comportamento de espera/sondagem do cliente; **não** é a duração do consenso nem o atraso de replicação interno. Não houve captura temporal independente de append/follower `fsync`; consequentemente, a **propagação por follower não foi cronometrada diretamente**, apesar de o follower ter servido o registro comprovado. Classificação normativa: **leitura no outro broker demonstrada, medição ponta a ponta demonstrada, instante de aplicação do follower não instrumentado**.
+
+**Tabela E3-A — Evidência direta de Fetch em follower e cinco durações ponta a ponta (ms).**
+
+| Rodada | Líder | Broker Fetch (follower) | Envio→ACK (ms) | Envio→leitura (ms) | HW |
+|---|---:|---:|---:|---:|---:|
+| 1 | 3 | 1 | 1.726,409 | 2.227,231 | 1 |
+| 2 | 2 | 1 | 23,376 | 524,195 | 1 |
+| 3 | 2 | 1 | 4,340 | 504,814 | 1 |
+| 4 | 3 | 1 | 4,261 | 505,294 | 1 |
+| 5 | 3 | 1 | 4,264 | 504,678 | 1 |
+| **Média ± DP amostral (n=5)** | — | — | **352,530 ± 768,066** | **853,242 ± 768,128** | — |
+
+*Fonte: `audit/m2_e3/evidence/run-40806933566/follower/measure_{1..5}.jsonl` e `summary.json`; timestamps monotônicos de um só processo Go. HW=1 é a fronteira de visibilidade após o registro de offset 0; não é carimbo de aplicação individual.*
+
+**Carga exemplificada nas páginas 31–32, separada do teste histórico.** Executou-se `kafka-producer-perf-test.sh --num-records 50000 --record-size 200 --throughput -1` em tópico RF3 de três partições **novo a cada rodada**, cinco vezes com `acks=1` e cinco com `acks=all`. A configuração do exemplo foi concretamente testada; não se reclassificam esses resultados como os benchmarks anteriores de 200 mensagens por repetição. A média de latência informada pelo `perf-test` ocorre sob pipeline/batching e carga alta, de modo que **não é latência de ACK de uma mensagem isolada nem de propagação interna**.
+
+**Tabela E3-B — Cinco execuções independentes de 50.000 registros de 200 bytes por modo (latência média da ferramenta, ms; vazão, msg/s).**
+
+| Rodada | acks=1 (msg/s) | acks=1 (ms) | acks=all (msg/s) | acks=all (ms) |
+|---|---:|---:|---:|---:|
+| 1 | 46.554,935 | 98,830 | 43.668,122 | 179,640 |
+| 2 | 47.258,979 | 98,390 | 43.591,979 | 96,560 |
+| 3 | 47.938,639 | 126,210 | 40.485,830 | 130,690 |
+| 4 | 46.685,341 | 105,490 | 42.808,219 | 105,550 |
+| 5 | 45.955,882 | 167,480 | 43.859,649 | 143,550 |
+| **Média ± DP (n=5)** | **46.878,755 ± 751,978** | **119,280 ± 29,223** | **42.882,760 ± 1.398,654** | **131,198 ± 33,004** |
+
+*Fonte: logs originais `audit/m2_e3/evidence/run-40806933566/benchmark/perf_{1,all}_{1..5}.log` e `summary.json`. Cada modo totaliza 250.000 registros; todos os dez testes concluíram 50.000.*
+
+
+**Comparação e decisão acadêmica:** o `sdtool` histórico de baixa carga relatou ACK de Kafka `acks=1`: **0,338 ± 0,036 ms**, `acks=all`: **0,764 ± 0,058 ms** (n=5 cada), ao passo que os novos números usam outra ferramenta, `--throughput -1`, payload de 200 bytes, 50.000 registros e dez tópicos novos. Não combinar DP, médias nem inferir ganho percentual entre séries incompatíveis. O novo desenho atende materialmente o comando ilustrativo e prova leitura real por follower; a equivalência entre *tempo de propagação* solicitado na p. 9 e a medida ponta a ponta via follower, ou a necessidade de medir o instante interno da réplica, permanece assunto de interpretação docente. Fonte primária: [R22] e logs `audit/m2_e3/evidence/run-40806933566/`; digest SHA-256 do ZIP original do GitHub: `9bdd38a4b7d7b2e64f98e299e1c25fd46361858584ec813d8c089a65f943c0a5`. A execução original E1–E9 não foi repetida nem modificada.
 
 ## 5.4 E4 — Ordenação e limite de consistência
 
@@ -401,7 +436,7 @@ Transcrição literal do roteiro oficial, seção 8.4, p. 33, com aplicação à
 
 **Validade interna.** Falha de líder não é sinônimo de falha do grupo de metadados; parada de dois processos afeta planos de dados e controle. O E5 apresentou materialização tardia após timeout de `CreateTopics`; instante de criação desconhecido. A confirmação de `acks=1` com um nó foi 2/5, não se devem inventar cinco confirmações. É possível misturar retry do cliente, coleta de estado e tempo de estabilização do cluster ao estimar recuperação. Em E6 o isolamento minoritário foi corrigido com bridge exclusiva; dados de tentativas históricas não devem ser tratados como a mesma topologia.
 
-**Validade de construto e medição.** E3 ACK e callback não medem replicação individual nem flush fsync em três réplicas. E4 não fez história concorrente linearizável. E6 mediu duração da partição, tempo até primeiro ACK da maioria e saúde após reconectar, com custo de Docker, callbacks, polled health e retries; séries Kafka e NATS foram capturadas em runners/datas diferentes. E7 tempo de ISR/current difere de recuperação de consumer group (offset 2). E8 época de partição e época do controlador são domínios distintos, e termo meta Raft NATS não foi exposto. Os desvios n=5 são **amostrais** e não fundamentam teste estatístico causal sem desenho adequado.
+**Validade de construto e medição.** E3 histórico mediu ACK e callback, e o complemento #40806933566 confirmou cinco leituras reais por follower; nenhum deles mediu o instante individual de append/fsync da réplica. A primeira rodada do complemento trouxe efeito de aquecimento e a leitura por follower inclui espera e agendamento do cliente. E4 não fez história concorrente linearizável. E6 mediu duração da partição, tempo até primeiro ACK da maioria e saúde após reconectar, com custo de Docker, callbacks, polled health e retries; séries Kafka e NATS foram capturadas em runners/datas diferentes. E7 tempo de ISR/current difere de recuperação de consumer group (offset 2). E8 época de partição e época do controlador são domínios distintos, e termo meta Raft NATS não foi exposto. Os desvios n=5 são **amostrais** e não fundamentam teste estatístico causal sem desenho adequado.
 
 **Validade externa.** Um runner virtual único não reproduz zonas de disponibilidade, falhas de disco, clock skew controlado, latência WAN, diversidade de hardware, cargas concorrentes de produção ou operações de segurança. Imagens com tag flutuante e limites configurados não são prova de capacidade real. A medição E9 não equipara semanticamente `acks=1`, `acks=all` e PubAck RF3.
 
@@ -426,7 +461,7 @@ O histórico de commits/execução automatizada não identifica, por si, quem re
 
 # 12. Referências (padrão ABNT, fontes heterogêneas)
 
-As 21 referências [R1]–[R21] reproduzem as identificações verificadas na Fase 2 e foram categorizadas no texto como artigo científico, proposta KIP ou documentação técnica. DOI só é indicado quando identificado; as consultas datam de 28 out. 2026. A bibliografia do relatório precisa de conferência final de ABNT pela equipe segundo orientações locais.
+As 21 referências [R1]–[R21] reproduzem as identificações verificadas na Fase 2, e [R22] acrescenta a fonte técnica primária KIP-392. Essas fontes foram categorizadas no texto como artigo científico, proposta KIP ou documentação técnica. DOI só é indicado quando identificado; as consultas datam de 28 out. 2026. A bibliografia do relatório precisa de conferência final de ABNT pela equipe segundo orientações locais.
 
 - **[R1]** KREPS, Jay; NARKHEDE, Neha; RAO, Jun. **Kafka: a Distributed Messaging System for Log Processing**. In: INTERNATIONAL WORKSHOP ON NETWORKING MEETS DATABASES (NetDB), 2011, Athens. *Proceedings...* 2011. Disponível em: https://www.microsoft.com/en-us/research/wp-content/uploads/2017/09/Kafka.pdf. Acesso em: 28 out. 2026. Artigo e sessão NetDB'11 confirmados no programa: https://www.microsoft.com/en-us/research/event/netdb-2011/program/. **DOI não atribuído**.
 - **[R2]** EUGSTER, Patrick Th.; FELBER, Pascal A.; GUERRAOUI, Rachid; KERMARREC, Anne-Marie. The many faces of publish/subscribe. *ACM Computing Surveys*, v. 35, n. 2, p. 114–131, jun. 2003. DOI: https://doi.org/10.1145/857076.857078. Registro do editor/afiliadas: https://folia.unifr.ch/global/documents/211422. Acesso em: 28 out. 2026.
@@ -449,6 +484,7 @@ As 21 referências [R1]–[R21] reproduzem as identificações verificadas na Fa
 - **[R19]** GILBERT, Seth; LYNCH, Nancy. Brewer's conjecture and the feasibility of consistent, available, partition-tolerant web services. *ACM SIGACT News*, v. 33, n. 2, p. 51–59, 2002. DOI: https://doi.org/10.1145/564585.564601. Registro: https://apice.unibo.it/bin/view/Publication/CapproofSigactnews33. Acesso em: 28 out. 2026.
 - **[R20]** ABADI, Daniel J. Consistency tradeoffs in modern distributed database system design: CAP is only part of the story. *Computer*, v. 45, n. 2, p. 37–42, fev. 2012. DOI: https://doi.org/10.1109/MC.2012.33. Texto de autor: https://www.cs.umd.edu/~abadi/papers/abadi-pacelc.pdf. Acesso em: 28 out. 2026.
 - **[R21]** NATS.IO. **JetStream Deep Dive**. NATS Documentation, [s. d.]. Disponível em: https://docs.nats.io/learn/jetstream/. Acesso em: 28 out. 2026. (PubAck, confirmação do consumidor, redelivery e grupos de leitores.)
+- **[R22]** APACHE SOFTWARE FOUNDATION. **KIP-392: Allow Consumers to Fetch from Closest Replica**. Proposta técnica Kafka, Jason Gustafson, 2019. Disponível em: https://cwiki.apache.org/confluence/spaces/KAFKA/pages/95653762/KIP-392%2BAllow%2Bconsumers%2Bto%2Bfetch%2Bfrom%2Bclosest%2Breplica. Acesso em: 29 out. 2026.
 
 # Anexo A — Proveniência dos experimentos (fora da extensão do corpo)
 
@@ -462,8 +498,10 @@ As 21 referências [R1]–[R21] reproduzem as identificações verificadas na Fa
 
 **A.5** E8/E9: `medicoes_e6_e8.csv`, `e8_metagrupo.md`, `e8_nats_r*_elected.txt`, `e8_partition_before.log`, `e8_partition_after_attempt0.log`, `e8_controller_before.log`, `e8_controller_after.log`, `e8_epoch_comparison.json`, `scripts/ci_compare_e9.py`.
 
-**A.6 — Complemento normativo da Fase 4.** Código isolado `audit/m2_fase4/`, tópico `pedidos` em três partições e RF3 e sequências E4 de 1–30 sem chave e 1–30 com chave única. Execução e arquivos: **workflow #40795085275, execução bem-sucedida, artifact GitHub #12863137924** (digest SHA-256 informado pelo GitHub `5f4292fb945b28c4713da354d59e89a9d62f22258c1ebd197a4e1358eeac1c67`); cópias textuais dos logs e validadores em `audit/m2_fase4/evidence/run-40795085275/`. `e1_describe_pedidos.log`, `e1_metadata_quorum.log`, `e4_30_sem_chave_e_mesma_chave.log`, `e1_validacao.json`, `e4_validacao.json` e `sha256_arquivos.txt`. Esses logs são independentes dos resultados E1/E4 historicamente preservados. O comando `--num-records 50000 --record-size 200` de E3 não foi executado nesta Fase 4.
+**A.6 — Complemento normativo da Fase 4.** Código isolado `audit/m2_fase4/`, tópico `pedidos` em três partições e RF3 e sequências E4 de 1–30 sem chave e 1–30 com chave única. Execução e arquivos: **workflow #40795085275, execução bem-sucedida, artifact GitHub #12863137924** (digest SHA-256 informado pelo GitHub `5f4292fb945b28c4713da354d59e89a9d62f22258c1ebd197a4e1358eeac1c67`); cópias textuais dos logs e validadores em `audit/m2_fase4/evidence/run-40795085275/`. `e1_describe_pedidos.log`, `e1_metadata_quorum.log`, `e4_30_sem_chave_e_mesma_chave.log`, `e1_validacao.json`, `e4_validacao.json` e `sha256_arquivos.txt`. Esses logs são independentes dos resultados E1/E4 historicamente preservados. O comando `--num-records 50000 --record-size 200` de E3 não foi executado naquela Fase 4; foi executado posteriormente no complemento independente #40806933566, descrito em A.7.
 
+
+**A.7 — Complemento E3 isolado.** [Workflow #40806933566](https://github.com/leodbc/Pub-Sub-Architecture/actions/runs/40806933566), commit de instrumentação `a1114b1c1cfe282be95a33ef73842a9f6179f30d` e [artifact #12868463363](https://github.com/leodbc/Pub-Sub-Architecture/actions/runs/40806933566/artifacts/12868463363). Logs originais e cópias textuais imutáveis em `audit/m2_e3/evidence/run-40806933566/`: `follower/measure_1..5.jsonl`, `follower/describe_before_1..5.log`, `follower/summary.json`, `benchmark/perf_1_1..5.log`, `benchmark/perf_all_1..5.log`, `sha256_arquivos.txt`, `evidence_manifest.json`. SHA-256 ZIP original `9bdd38a4b7d7b2e64f98e299e1c25fd46361858584ec813d8c089a65f943c0a5`. `compose_final.log` e demais provas originais permanecem no ZIP GitHub; não foram substituídos nem interpretados como evidência temporal de escrita individual no follower. Resultados não se mesclam às séries anteriores.
 
 # Anexo B — Matriz de conformidade da elaboração (fora da extensão do corpo)
 
@@ -471,14 +509,14 @@ As 21 referências [R1]–[R21] reproduzem as identificações verificadas na Fa
 |---|---|---|
 | 1 Identificação | Parcial | Dados da equipe/matrículas não fornecidos |
 | 2 Resumo | Atendido na redação | Revisão humana da síntese pendente |
-| 3 Fundamentação | Atendido na redação | Fontes [R1–R21], Fig. 1–3 |
+| 3 Fundamentação | Atendido na redação | Fontes [R1–R22] (inclui KIP-392), Fig. 1–3 |
 | 4 Ambiente | Parcial | Runner e Compose documentados; inventário físico não registrado |
-| 5 E1–E9 | Parcial até reauditoria | E1/E4 complementares Fase 4 separados; E3 sem propagação por follower e carga diferente do comando de 50.000/200; E5 matriz consolidada; n=5 preservado nas séries históricas |
+| 5 E1–E9 | Parcial até reauditoria | E1/E4 complementares Fase 4 separados; E3 complementar: Fetch por follower confirmado 5/5, duração ponta a ponta n=5 e comando 50.000/200 em 5+5 rodadas; aplicação interna follower não cronometrada; E5 matriz consolidada; n=5 preservado nas séries históricas |
 | 6 Q1–Q14 | Atendido na redação | 14 perguntas literais e respostas rastreáveis |
 | 7 S1–S4 | Atendido na redação | 4 perguntas literais e respostas |
 | 8 Quadro-síntese | Atendido na redação | 10/10 campos p. 41 |
 | 9 Ameaças à validade | Atendido na redação | Interna, externa, medição e documental |
 | 10 Contribuições individuais | Parcial | Todos os nomes e papéis humanos pendentes |
 | 11 Declaração IA | Parcial | Declaração transparente; aprovação humana pendente |
-| 12 Referências | Atendido na redação | 21 entradas; revisão normativa humana final pendente |
-| Extensão e renderização | Atendido tecnicamente, sob reauditoria | PDF A4 com **22 páginas totais**; **20 páginas antes dos anexos**, que começam na **página 21** (Anexo B na página 22). PDF/DOCX gerados da mesma revisão; ver manifesto com hash. Conferidos sumário, tabelas, figuras, caracteres e ausência de blocos fora da página. A paginação do Word pode variar; revisão humana ainda pendente. |
+| 12 Referências | Atendido na redação | 22 entradas (21 originais preservadas + KIP-392); revisão ABNT humana pendente |
+| Extensão e renderização | Atendido tecnicamente, sob reauditoria | PDF A4 com **24 páginas totais**; **22 páginas antes dos anexos**, que começam na **página 23** (Anexo B na página 24). PDF/DOCX gerados da mesma revisão; ver manifesto com hash. Conferidos sumário, tabelas, figuras, caracteres e ausência de blocos fora da página. A paginação do Word pode variar; revisão humana ainda pendente. |

@@ -1,0 +1,2 @@
+Option --producer-props has been deprecated and will be removed in a future version. Use --command-property instead.
+50000 records sent, 47258.979206 records/sec (9.01 MB/sec), 98.39 ms avg latency, 376.00 ms max latency, 92 ms 50th, 221 ms 95th, 257 ms 99th, 271 ms 99.9th.

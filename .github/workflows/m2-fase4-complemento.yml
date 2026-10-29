@@ -1,0 +1,41 @@
+name: M2 Fase 4 - complemento normativo E1 e E4 (isolado)
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'audit/m2_fase4/**'
+      - '.github/workflows/m2-fase4-complemento.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: m2-f4-only-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  complemento_e1_e4:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+          cache: true
+          cache-dependency-path: go/go.sum
+      - name: Compilar instrumento exclusivo da Fase 4
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile audit/m2_fase4/validate_e1.py audit/m2_fase4/validate_e4.py
+          (cd go && mkdir -p bin && CGO_ENABLED=0 GOOS=linux go build -mod=readonly -o bin/m2_f4_e4 ../audit/m2_fase4/e4_30.go)
+      - name: Executar apenas E1 e E4 complementares (sem benchmarks historicos)
+        shell: bash
+        run: bash audit/m2_fase4/run.sh
+      - name: Armazenar logs mesmo em falha
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-fase4-e1-e4-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/m2-fase4-complemento/
+          retention-days: 30
+          if-no-files-found: warn

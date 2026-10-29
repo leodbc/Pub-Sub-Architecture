@@ -1,0 +1,36 @@
+name: M2 E3 - isolated follower read and 50000-record performance
+on:
+  pull_request:
+    paths:
+      - 'audit/m2_e3/**'
+      - '.github/workflows/m2-e3-complement.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: m2-e3-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  follower-and-benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go/go.mod
+          cache: true
+          cache-dependency-path: go/go.sum
+      - name: Run isolated supplementary E3 only
+        shell: bash
+        run: bash audit/m2_e3/run.sh
+      - name: Upload raw evidence on success or failure
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m2-e3-normative-${{ github.run_id }}
+          path: |
+            artifacts/m2-e3-follower/
+            artifacts/m2-e3-bench/
+          retention-days: 30
+          if-no-files-found: warn

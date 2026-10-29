@@ -1,0 +1,13 @@
+services:
+  kafka1:
+    environment:
+      KAFKA_BROKER_RACK: "rack-1"
+      KAFKA_REPLICA_SELECTOR_CLASS: "org.apache.kafka.common.replica.RackAwareReplicaSelector"
+  kafka2:
+    environment:
+      KAFKA_BROKER_RACK: "rack-2"
+      KAFKA_REPLICA_SELECTOR_CLASS: "org.apache.kafka.common.replica.RackAwareReplicaSelector"
+  kafka3:
+    environment:
+      KAFKA_BROKER_RACK: "rack-3"
+      KAFKA_REPLICA_SELECTOR_CLASS: "org.apache.kafka.common.replica.RackAwareReplicaSelector"

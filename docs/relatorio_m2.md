@@ -185,7 +185,7 @@ O laboratório registra cinco ciclos onde o roteiro pede medidas temporais e uti
 
 **Tabela 4 — Matriz normativa consolidada E5: leituras, escritas e metadados segundo nós ativos (cinco observações por linha, quando instrumentadas).**
 
-| Sistema | Ativos | Leitura API | Kafka `acks=all` | Kafka `acks=1` | JetStream PubAck | Operação de metadados |
+| Sistema | Nós | Leitura API | Kafka `acks=all` | Kafka `acks=1` | JetStream PubAck | Operação de metadados |
 |---|---:|---|---|---|---|---|
 | Kafka | 3 | Não instrumentada em E5 | confirmado 5/5 | Não instrumentada | Não se aplica | Não instrumentada |
 | Kafka | 2 | vazio, dados, dados, vazio, dados | confirmado 5/5 | Não instrumentada | Não se aplica | Não instrumentada |

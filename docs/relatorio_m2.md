@@ -45,17 +45,7 @@ Os três nós Kafka do laboratório exercem simultaneamente os papéis `broker,c
 
 JetStream usa grupos Raft por stream e por consumidor, além de grupo de metadados; grupo RF3 requer maioria 2/3 para avançar confirmações consistentes conforme configuração. Um PubAck é semântica de publicação do serviço, não equivalência automática a qualquer nível de ACK do Kafka [R13–R15].
 
-```mermaid
-flowchart LR
-  P["Produtor Kafka"] -->|"bootstrap + Produce"| K1["kafka1 · broker/controller"]
-  K1 <-->|"ISR + KRaft (mecanismos separados)"| K2["kafka2 · broker/controller"]
-  K2 <-->|"ISR + KRaft"| K3["kafka3 · broker/controller"]
-  C["Consumidor Kafka"] --> K2
-  NP["Produtor NATS"] --> N1["nats1 · JetStream"]
-  N1 <-->|"Raft por stream"| N2["nats2 · JetStream"]
-  N2 <-->|"Raft por stream"| N3["nats3 · JetStream"]
-  NC["Consumidor NATS"] --> N3
-```
+![Figura 1 — Nós, redes e papéis configurados (sem atribuir líder fixo)](figuras_m2/01_topologia.svg)
 
 *Figura 1 — Nós, redes e papéis configurados (sem atribuir líder fixo). Fonte: elaboração própria com base em arquivos Compose; EV-E1.*
 
@@ -63,24 +53,7 @@ flowchart LR
 
 A chave e o particionador determinam o destino Kafka em condições fixas; o produtor descobre o líder pelos metadados, faz `Produce`, os seguidores replicam pelo protocolo de fetch e a resposta depende de `acks`. Em `acks=1`, o líder pode responder antes da confirmação pelas demais réplicas; em `acks=all`, a resposta exige o conjunto ISR atual e o mínimo configurado. Em geral, o consumidor só enxerga registros até a fronteira de confirmação HW; leitura transacional `read_committed` considera também LSO [R3–R6]. Com RF3 e ISR=3, `min.insync.replicas=2` é *piso* da cardinalidade, e não autorização para ignorar a terceira réplica ainda integrante do ISR.
 
-```mermaid
-sequenceDiagram
-  participant P as Produtor
-  participant B as Broker bootstrap
-  participant L as Lider particao
-  participant F as Seguidores ISR
-  participant C as Consumidor
-  P->>B: MetadataRequest
-  B-->>P: Particao e lider
-  P->>L: Produce(chave, valor)
-  F->>L: Replica FetchRequest
-  L-->>F: FetchResponse(registros)
-  F->>L: Progresso de offset
-  Note over L,F: ISR / high watermark
-  L-->>P: ACK conforme acks configurado
-  C->>L: Fetch(offset)
-  L-->>C: Registros visiveis conforme HW
-```
+![Figura 2 — Fluxo lógico de publicação/replicação/leitura; não é trace instrumentado](figuras_m2/02_operacao_kafka.svg)
 
 *Figura 2 — Fluxo lógico de publicação/replicação/leitura; não é trace instrumentado. Fonte: elaboração própria com base em [R3–R6], EV-E2.*
 
@@ -88,18 +61,7 @@ sequenceDiagram
 
 Um **log de dados Kafka** é uma sequência líder–seguidor por partição e usa ISR/HW para fronteiras de visibilidade e durabilidade condicionada. Um **log de metadados KRaft** é um estado replicado com eleição e commit por maioria entre controladores. Um **stream JetStream RF3** possui grupo Raft próprio. A palavra “consenso” não transforma os três em protocolos equivalentes. O `min.insync.replicas` limita confirmações `acks=all`, mas não é uma votação Raft de cada mensagem Kafka. Como E8 demonstra, a época de líder de partição e a época do controlador são variáveis diferentes; ELR (KIP-966 [R9–R10]) introduz regra adicional de elegibilidade em versões atuais, mas seu acionamento específico não foi isolado neste laboratório.
 
-```mermaid
-flowchart LR
-  subgraph KafkaDados["Kafka: dados da particao"]
-    K1["Lider"] --> K2["Replica fetch e ISR"] --> K3["High watermark"]
-  end
-  subgraph KafkaMeta["KRaft: metadados"]
-    M1["Metadados"] --> M2["Consenso Raft · maioria controladores"]
-  end
-  subgraph Nats["JetStream: stream"]
-    N1["Stream e consumidores"] --> N2["Raft · quorum RF3"]
-  end
-```
+![Figura 3 — Separação entre ISR/HW, KRaft e Raft dos streams JetStream](figuras_m2/03_mecanismos.svg)
 
 *Figura 3 — Separação entre ISR/HW, KRaft e Raft dos streams JetStream. Fonte: elaboração própria com base em [R3, R7–R10, R14–R15].*
 
@@ -181,13 +143,7 @@ O laboratório registra cinco ciclos onde o roteiro pede medidas temporais e uti
 
 *Fonte: `resumo_estatistico.md`, `e3_kafka_acks_1.log`, `e3_kafka_acks_all.log`, `e3_nats_rf3.log` no artifact histórico E1–E4 de EV-E3. Latência em ms; vazão em mensagens/s; n=5 por modo.*
 
-```mermaid
-xychart-beta
-  title "E3: latencia media de ACK do produtor (ms)"
-  x-axis ["Kafka all", "Kafka 1", "NATS RF3"]
-  y-axis "ms" 0 --> 1
-  bar [0.764, 0.338, 0.558]
-```
+![Figura 4 — ACK e vazão do produtor nas três configurações (não equivalência de garantia)](figuras_m2/04_e3_estatisticas.svg)
 
 *Figura 4 — ACK e vazão do produtor nas três configurações (não equivalência de garantia). Fonte: elaboração própria com base em Tabela 2; EV-E3.*
 
@@ -246,10 +202,7 @@ xychart-beta
 
 **Objetivo e previsão:** isolar o líder de replicação e prover um cliente minoritário sem rota à maioria; confirmar escrita na maioria, recusar confirmação na minoria dentro da janela. **Procedimento:** bridge Docker `--internal` exclusiva para cliente da minoria e nó isolado; conferir rotas/interfaces e testar os dois lados, após isso reconectar e verificar saúde do cluster. **[O]** Kafka n=5: maioria escreveu e leu registro anterior nas cinco rodadas; minoria 0/5 ACKs `acks=all`; NATS: confirmação eventual na maioria e 0/5 PubAck e leituras confirmadas na minoria no intervalo. **[L]** leituras não confirmadas **não** provam perda definitiva. Três relógios diferentes devem ser mantidos separados: duração de partição (disconnect→início do reconnect), tempo até primeira confirmação majoritária (disconnect→ACK, incluindo retries) e tempo de recuperação após reconexão (connect→primeiro polling saudável). Todos incluem overhead experimental, não consenso interno.
 
-```mermaid
-flowchart LR
-  MAJ["MAIORIA · 2 nos<br/>cliente normal<br/>ACK confirmado em E6"] -. "particao de rede: sem comunicacao" .- MIN["MINORIA · 1 no<br/>cliente em bridge --internal<br/>0/5 confirmacoes Kafka all e NATS"]
-```
+![Figura 5 — Rede majoritária e minoria fisicamente isolada para cliente (cenário E6)](figuras_m2/05_particao.svg)
 
 *Figura 5 — Rede majoritária e minoria fisicamente isolada para cliente (cenário E6). Fonte: elaboração própria com base em EV-E6, network_proof.log e minority_interfaces.log.*
 
@@ -302,13 +255,7 @@ flowchart LR
 
 *Fonte: `medicoes_falhas.csv` (E5, E7), `medicoes_e6_e8.csv` (E8), ZIPs históricos E5–E7 e E6–E8; linhas originadas nos logs identificados em cada CSV (EV-E5, EV-E7, EV-E8). `E5` designa a primeira escrita confirmada após falha de líder, não duração de eleição; `E7` primeiro estado saudável detectado.*
 
-```mermaid
-flowchart LR
-  A["E5: falha do lider"] --> B["E6: particao e 3 tempos independentes"]
-  B --> C["E7: retorno de ISR / stream"]
-  C --> D["E7: consumer group commit offset 2<br/>retomada 2–5"]
-  D --> E["E8: epoch particao 0→1<br/>epoch controlador 1→1"]
-```
+![Figura 6 — Eventos operacionais E5–E8; sem igualar épocas ou relógios](figuras_m2/06_recuperacao.svg)
 
 *Figura 6 — Eventos operacionais E5–E8; sem igualar épocas ou relógios. Fonte: elaboração própria com base em EV-E5–EV-E8.*
 
@@ -531,4 +478,4 @@ As 21 referências [R1]–[R21] reproduzem as identificações verificadas na Fa
 | 10 Contribuições individuais | Parcial | Todos os nomes e papéis humanos pendentes |
 | 11 Declaração IA | Parcial | Declaração transparente; aprovação humana pendente |
 | 12 Referências | Atendido na redação | 21 entradas; revisão normativa humana final pendente |
-| Extensão e renderização | A verificar no arquivo PDF final | Número de páginas deve ser obtido no PDF e excluídos anexos |
+| Extensão e renderização | Atendido na renderização verificada | PDF A4 com **19 páginas totais**; **18 páginas antes dos anexos**, iniciados na **página 19**. Conferidos sumário, tabelas, figuras, fontes, caracteres e ausência de cortes na renderização. DOCX regenerado da mesma revisão; sua paginação pode variar conforme o editor. |
